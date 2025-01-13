@@ -7,28 +7,44 @@
 	<title>Hotelzinho</title>
 </head>
 <body>
+	<div id="dex">
+		<p></p>
+		<button>fechar</button>
+	</div>
 	<div id="quadro">
-		Teste: tenta fazer tal coisa etc etc.
+		<p></p>
+		<button>próximo</button>
 	</div>
-	<div id="dinheiro">
-		1000
-	</div>
-	<div id="reset">
-		reset
-	</div>
+	<div id="dinheiro">0</div>
+	<div id="reset">reset</div>
 	<div id="canvas">
-		<div class="char"></div>
 		<div id="ceu"></div>
-		<div class="andar">
-			primeiro andar
-		</div>
+		<div id="hotel"></div>
 		<div id="recepcao">
 			<div class="gerente"></div>
 			<p>RECEPÇÃO</p>
+			<div class="porta"></div>
 		</div>
 		<div id="rua"></div>
 	</div>
 
+	<template id="andar">
+		<div class="andar">
+			<p></p>
+			<div class="porta"></div>
+		</div>
+	</template>
+	<template id="andar-fudido">
+		<div class="andar fudido">
+			<button></button>
+			<div class="sujeira" style="left: 20px"></div>
+			<div class="sujeira" style="left: 40px; transform: scale(2);"></div>
+			<div class="sujeira" style="left: 100px"></div>
+			<div class="sujeira" style="left: 130px"></div>
+		</div>
+	</template>
+
+	<script src="anime.min.js"></script>
 	<script src="app.js"></script>
 </body>
 </html>

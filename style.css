@@ -16,6 +16,21 @@ body {
 	display: none;
 }
 
+#dex {
+	box-sizing: border-box;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: calc(100vw - 60px);
+	margin: 90px 30px 0;
+	border: 2px solid black;
+	padding: 20px;
+	background-color: white;
+	color: black;
+	z-index: 3;
+	display: none;
+}
+
 #dinheiro {
 	position: fixed;
 	top: 0;
@@ -56,11 +71,26 @@ body {
 	flex-grow: 1;
 }
 
+#hotel {
+	display: flex;
+	flex-direction: column-reverse;
+}
+
 #rua {
 	background: grey;
 	width: 100%;
 	height: 100px;
 	border-top: 3px solid black;
+}
+
+.porta {
+	position: absolute;
+	bottom: 0;
+	right: 20px;
+	height: 50px;
+	width: 30px;
+	background-color: darkslategrey;
+	border-right: 3px solid black;
 }
 
 #recepcao {
@@ -87,6 +117,45 @@ body {
 		font-size: 24px;
 		color: grey;
 	}
+
+	.porta {
+		right: 60px;
+	}
+}
+
+.andar {
+	background: lightgray;
+	width: 200px;
+	height: 100px;
+	border: 3px solid grey;
+	border-bottom: none;
+	position: relative;
+	text-align: center;
+
+	p {
+		margin-top: 10px;
+		text-align: center;
+		font-size: 18px;
+		color: grey;
+	}
+
+	&.fudido {
+		background: none;
+		border-top: none;
+
+		.sujeira {
+			position: absolute;
+			height: 20px;
+			width: 20px;
+			background-color: gray;
+			bottom: 0px;
+			transform-origin: bottom;
+		}
+
+		button {
+			margin: 20px auto;
+		}
+	}
 }
 
 .char {
@@ -95,14 +164,27 @@ body {
 	width: 30px;
 	border-radius: 30px;
 	border: 3px solid black;
-	background-color: darkslategray;
+	background-color: grey;
 	z-index: 1;
-	bottom: 50px;
-	left: -36px;
-	animation: moveSideToSide 15s infinite linear;
+	/* bottom: 50px;
+	left: -36px; */
+	top: 0;
+	left: 0;
+	/* animation-duration: var(--animation-duration);
+	animation-timing-function: linear;
+	animation-iteration-count: infinite; */
+	display: flex;
+	justify-content: center;
+	align-items: center;
+
+	&.visiting {
+		border-color: red;
+		background-color: white;
+		/* animation: toQueue 5s linear forwards; */
+	}
 }
 
-@keyframes moveSideToSide {
+/* @keyframes moveLeftoRight {
 	0% {
 		transform: translateX(0);
 	}
@@ -110,3 +192,29 @@ body {
 		transform: translateX(calc(100vw + 36px));
 	}
 }
+@keyframes moveRightToLeft {
+	0% {
+		transform: translateX(calc(100vw + 36px));
+	}
+	100% {
+		transform: translateX(0);
+	}
+} */
+/* @keyframes toQueue {
+	0% {
+		left: var(--left);
+		bottom: var(--bottom);
+	}
+	10% {
+		left: 170px;
+		bottom: 80px;
+	}
+	30% {
+		left: 170px;
+		bottom: 103px;
+	}
+	100% {
+		left: 80px;
+		bottom: 103px;
+	}
+} */
