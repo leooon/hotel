@@ -1,7 +1,9 @@
-setInterval(tick, 1000);
-function tick () {
-	// showChars();
-	// checkVisit();
+const textos = {
+	'introducao': [
+		'Olá, você herdou essa poçilga.',
+		'Benção ou maldição? Vamos descobrir.',
+		'Para atrair algum desesperado, construa um quarto minimamente habitável.',
+	],
 }
 
 let hotel = {
@@ -30,24 +32,119 @@ let hotel = {
 	streetChars: [],
 }
 
+const dex = {
+	'clown': {
+		'unlocked': false,
+		'show': [],
+		'visit': [{'minAndares': 1}],
+	},
+	'dinossaur': {
+		'unlocked': false,
+		'show': [{'minAndares': 2}],
+		'visit': [{'minAndares': 3}],
+	},
+	'ghost': {
+		'unlocked': false,
+		'show': [{'minAndares': 2}],
+		'visit': [{'minAndares': 3}]
+	}
+}
+
+let file = {
+	chars: {},
+	progress: {},
+	building: {},
+}
+
+const actions = {
+	streetWalking (char) {
+		const charName = char.type;
+		const el = char.el;
+
+		const ruaRect = document.getElementById('rua').getBoundingClientRect();
+		const targetX = ruaRect.width;
+		const randomAnimationDuration = Math.floor(Math.random() * (36 - 12 + 1) + 12);
+		const randomBottom = Math.floor(Math.random() * (50 - (-10) + 1) + (-10));
+		el.style.transform = `translateY(${ruaRect.top + randomBottom}px)`;
+		el.style.zIndex = 100 +randomBottom;
+
+		sideToggle = !sideToggle;
+		const translateArr = sideToggle ? [-36, targetX] : [targetX, -36];
+
+		anime({
+			targets: el,
+			translateX: translateArr,
+			duration: randomAnimationDuration * 1000,
+			easing: 'linear',
+			complete: function(anim) {
+				el.remove();
+				
+				delete file.chars[char.id];
+				save();
+			},
+			update: function(anim) {
+				const progress = Math.round(anim.progress)
+				
+				if (progress == 40 && !anim.control) {
+					anim.control = true;
+
+					if (canVisit(charName)) {
+						el.classList.add('clown');
+					
+						anim.pause();
+
+						actions.visiting(char);
+					}
+				}
+			}
+		});
+	},
+	visiting (char) {
+		const order = Object.values(file.chars).filter(char => char.location === 'reception').length + 1;
+		
+		char.location = 'reception';
+		char.receptionOrder = order;
+		file.chars[char.id] = char;
+		save();
+		
+		anime({
+			targets: char.el,
+			keyframes: [
+				{translateY: getPosition('#escada').y, translateX: getPosition('#escada').x},
+				{translateY: getPosition('.gerente').y},
+				{translateX: getPosition('.gerente').x + (order * 35)},
+			],
+			duration: 4000,
+			easing: 'linear',
+		});
+	}
+}
+
+function save() {
+	localStorage.setItem('file', JSON.stringify(file));
+}
+
 document.getElementById('reset').onclick = () => {
 	localStorage.removeItem('dinheiro');
 	localStorage.removeItem('hotel');
+	localStorage.removeItem('file');
+
 	location.reload();
 }
 
 window.addEventListener('load', () => {
+	file = localStorage.getItem('file') ? JSON.parse(localStorage.getItem('file')) : file;
+
 	const dinheiro = localStorage.getItem('dinheiro');
-	
 	const savedHotel = localStorage.getItem('hotel');
+	
 	if (savedHotel) {
-		hotel = JSON.parse(savedHotel);
+		hotel = JSON.parse(savedHotel);	
 	} else {
 		localStorage.setItem('hotel', JSON.stringify(hotel));
 	}
 	renderHotel();
-
-	hotel.streetChars = [];
+	loadChars();
 
 	if (dinheiro === null) {
 		document.querySelector('.fudido button').style.display = 'none';
@@ -62,14 +159,20 @@ window.addEventListener('load', () => {
 		document.getElementById('dinheiro').innerHTML = dinheiro;
 		document.querySelector('.fudido button').style.display = 'block';
 	}
+
+	showCharsInterval();
 });
 
-const textos = {
-	'introducao': [
-		'Olá, você herdou essa poçilga.',
-		'Benção ou maldição? Vamos descobrir.',
-		'Para atrair algum desesperado, construa um quarto minimamente habitável.',
-	],
+function loadChars() {
+	Object.values(file.chars).filter(char => char.location === 'street').forEach(char => {
+		delete file.chars[char.id];
+	});
+
+	Object.entries(file.chars).filter(([id, char]) => char.location === 'reception').forEach(([id, char]) => {
+		el = renderChar(char.type);
+		file.chars[id].el = el;
+		el.style.transform = `translateY(${getPosition('.gerente').y}px) translateX(${getPosition('.gerente').x + (char.receptionOrder * 35)}px)`;
+	});
 }
 
 function mensagem(fluxo, callback) {
@@ -93,7 +196,6 @@ function mensagem(fluxo, callback) {
 
 function renderHotel() {
 	const hotelEl = document.getElementById('hotel');
-	hotelEl.innerHTML = '';
 
 	for (const [key, andar] of Object.entries(hotel.andares)) {
 		if (andar.comprado) {
@@ -112,6 +214,12 @@ function renderHotel() {
 			break;
 		}
 	};
+	
+	const fudidoEl = document.querySelector('.fudido button');
+	const nextAndar = Object.values(hotel.andares).find(andar => !andar.comprado);
+	fudidoEl.innerHTML = nextAndar.preco;
+
+
 }
 
 function comprarAndar() {
@@ -130,116 +238,86 @@ function comprarAndar() {
 		hotel.andares[andar].comprado = true;
 		localStorage.setItem('hotel', JSON.stringify(hotel));
 
-		renderHotel();
-	}
-}
-
-const chars = {
-	'clown': {
-		'unlocked': false,
-		'show': [],
-		'visit': [{'minAndares': 1}],
-	},
-	'dinossaur': {
-		'unlocked': false,
-		'show': [{'minAndares': 2}],
-		'visit': [{'minAndares': 3}],
-	},
-	'ghost': {
-		'unlocked': false,
-		'show': [{'minAndares': 2}],
-		'visit': [{'minAndares': 3}],
+		const hotelEl = document.getElementById('hotel');
+		const template = document.importNode(document.querySelector('#andar').content, true);
+		template.querySelector('p').innerHTML = hotel.andares[andar].texto;
+		hotelEl.insertBefore(template, hotelEl.querySelector('.fudido'));
 	}
 }
 
 let sideToggle = false;
 
 function showChars() {
-	if (hotel.streetChars.length >= 3) return;
+	if (howMany('location', 'street')>= 4) return;
+	
+	const allowedTypes = [];
 
-	for (const char in chars) {
-		if (checkShow(char)) renderChar(char);
-		return;
+	for (const type in dex) {
+		if (canShow(type)) allowedTypes.push(type);
 	}
+
+	const random = Math.floor(Math.random() * allowedTypes.length);
+	const type = allowedTypes[random];
+
+	const id = Object.keys(file.chars).length ? Math.max(...Object.values(file.chars).map(char => char.id)) + 1 : 1;
+	const char = {
+		id: id,
+		type: type,
+		location: 'street',
+		action: 'streetWalking',
+		el: renderChar(type)
+	}
+	file.chars[id] = char;
+	save();
+
+	actions.streetWalking(char);
 }
 
 function showCharsInterval() {
 	showChars();
 	
-	const rand = Math.floor(Math.random() * (8000 - 1000 + 1)) + 1000;
+	const rand = Math.floor(Math.random() * (8000 - 2000 + 1)) + 2000;
 	setTimeout(showCharsInterval, rand);
 }
-showCharsInterval();
 
-function checkShow(char) {
-	if (!chars[char].show.length) return true;
+function canShow(type) {
+	let can = false;
 
-	for (const showCondition of chars[char].show) {
+	if (!dex[type].show.length) can = true;
+
+	for (const showCondition of dex[type].show) {
 		const minAndares = showCondition.minAndares;
 		if (minAndares === undefined || Object.keys(hotel.andares).filter(key => hotel.andares[key].comprado).length >= minAndares) {
-			return true;
+			can = true;
 		}
 	}
-	return false;
+
+	if (can) {
+		file.progress[type] = file.progress[type] || {};
+		file.progress[type].show = true;
+		save();
+	}
+	
+	return can;
 }
 
-function renderChar(charName) {	
-	hotel.streetChars.push(charName);
-	localStorage.setItem('hotel', JSON.stringify(hotel));
-	
-	const charEl = document.createElement('div');
-	charEl.innerHTML = '?';
-	charEl.classList.add('char', charName);
-	charEl.dataset.type = charName;
-	document.getElementById('canvas').appendChild(charEl);
+function renderChar(type) {
+	const el = document.createElement('div');
 
-	charEl.onclick = (e) => {
-		openDex(charName);
+	if (file.progress?.[type]?.visit) {
+		el.classList.add('char', type);
+	} else {
+		el.classList.add('char', 'locked');
+		el.innerHTML = '🔒';
+	}
+
+	document.getElementById('canvas').appendChild(el);
+
+	el.onclick = (e) => {
+		openDex(type);
 	};
 
-	charEl.teste = 'oi';
-
-	const ruaRect = document.getElementById('rua').getBoundingClientRect();
-	const targetX = ruaRect.width;
-	const randomAnimationDuration = Math.floor(Math.random() * (36 - 12 + 1) + 12);
-	const randomBottom = Math.floor(Math.random() * (50 - (-10) + 1) + (-10));
-	charEl.style.transform = `translateY(${ruaRect.top + randomBottom}px)`;
-	charEl.style.zIndex = 100 +randomBottom;
-
-	sideToggle = !sideToggle;
-	const translateArr = sideToggle ? [-36, targetX] : [targetX, -36];
-
-	anime({
-		targets: charEl,
-		translateX: translateArr,
-		duration: randomAnimationDuration * 1000,
-		easing: 'linear',
-		complete: function(anim) {
-			charEl.remove();
-			const index = hotel.streetChars.indexOf(charName);
-			if (index > -1) {
-				hotel.streetChars.splice(index, 1);
-				localStorage.setItem('hotel', JSON.stringify(hotel));
-			}
-		},
-		update: function(anim) {
-			const progress = Math.round(anim.progress)
-			
-			if (progress == 40 && !anim.control) {
-				anim.control = true;
-
-				if (canVisit(charName)) {
-					charEl.classList.add('visiting');
-					charEl.innerHTML = '';
-					// chars[charType].unlocked = true;
-
-					anim.pause();
-
-					goToQueue(charEl);
-				}
-			}
-		  }
-	});
+	return el;
 }
 
 function openDex (charName) {
@@ -248,7 +326,7 @@ function openDex (charName) {
 	
 	const p = dexEl.querySelector('p');
 
-	const unlocked = chars[charName].unlocked;
+	const unlocked = dex[charName].unlocked;
 	if (unlocked) {
 		p.innerHTML = charName + '<br><br>';
 	} else {
@@ -256,14 +334,14 @@ function openDex (charName) {
 	}
 	
 	const showCondition = [];
-	if (!chars[charName].show.length) showCondition.push('Sem critérios.');
+	if (!dex[charName].show.length) showCondition.push('Sem critérios.');
 	for (const condition of chars[charName].show) {
 	}
 	p.innerHTML += 'Aparecer: ' + showCondition.join(', ') + '<br>';
 
 	const visitCondition = [];
-	if (!chars[charName].visit.length) visitCondition.push('Sem critérios.');
-	for (const condition of chars[charName].visit) {
+	if (!dex[charName].visit.length) visitCondition.push('Sem critérios.');
+	for (const condition of dex[charName].visit) {
 		if (condition.minAndares) {
 			visitCondition.push('Pelo menos ' + condition.minAndares + ' quarto disponível.');
 		}
@@ -281,25 +359,42 @@ function checkVisit(charEl) {
 	
 }
 
-function canVisit (char) {
-	for (const visitCondition of chars[char].visit) {
+function canVisit (type) {
+	if (Object.values(file.chars).filter(char => char.location === 'reception').length >= 4) return false;
+
+	for (const visitCondition of dex[type].visit) {
 		const minAndares = visitCondition.minAndares;
 		if (minAndares === undefined || Object.keys(hotel.andares).filter(key => hotel.andares[key].comprado).length >= minAndares) {
+			
+			file.progress[type].visit = true;
+			save();
+
+			for (const id in file.chars) {
+				const char = file.chars[id];
+				if (char.type === type) {
+					char.el.classList.add(type);
+				}
+			}
+			Object.values(file.chars).filter(char => char.type === type).forEach(char => {
+				char.el.classList.add(type);
+				char.el.innerHTML = '';
+			});
+
 			return true;
 		}
 	}
 	return false;
 }
 
-function goToQueue (charEl) {
-	anime({
-		targets: charEl,
-		keyframes: [
-			{translateY: 690, translateX: 180},
-			{translateY: 661},
-			{translateX: 90},
-		],
-		duration: 4000,
-		easing: 'linear',
-	});
+function getPosition(selector) {
+	const el = document.querySelector(selector);
+	const rect = el.getBoundingClientRect();
+	return {
+		x: rect.left + window.scrollX,
+		y: rect.top + window.scrollY
+	};
+}
+
+function howMany(type, value) {
+	return Object.values(file.chars).filter(char => char[type] === value).length;
 }
