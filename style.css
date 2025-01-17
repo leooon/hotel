@@ -3,6 +3,10 @@ body {
 	overflow: hidden;
 }
 
+div {
+	box-sizing: border-box;
+}
+
 #quadro {
 	position: fixed;
 	top: 0;
@@ -31,30 +35,42 @@ body {
 	display: none;
 }
 
-#dinheiro {
+#menu {
 	position: fixed;
+	width: 100vw;
 	top: 0;
 	left: 0;
-	margin: 20px;
-	border: 2px solid goldenrod;
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
 	border-radius: 8px;
 	padding: 10px;
-	background-color: gold;
 	z-index: 2;
+
+	div {
+		border-radius: 8px;
+		padding: 10px;
+		
+	}
+	
+	#dinheiro {
+		border: 2px solid goldenrod;
+		background-color: gold;
+		width: 100px;
+	}
+	
+	#dex_bt {
+		border: 2px solid blue;
+		background-color: lightblue;
+	}
+	
+	#reset {
+		border: 2px solid red;
+		background-color: lightpink;
+		color: red;
+	}
 }
 
-#reset {
-	position: fixed;
-	top: 0;
-	right: 0;
-	margin: 20px;
-	border: 2px solid red;
-	border-radius: 8px;
-	padding: 10px;
-	background-color: lightpink;
-	color: red;
-	z-index: 2;
-}
 
 #canvas {
 	background-color: aqua;
@@ -122,6 +138,32 @@ body {
 
 	.porta {
 		right: 60px;
+	}
+
+	#checkin {
+		position: absolute;
+		top: 10px;
+		left: -20px;
+		display: none;
+
+		&.active {
+			display: block;
+		}
+	
+		button {
+			margin: 20px auto;
+			padding: 10px;
+		}
+
+		#checkin_bt {
+			background-color: lightgreen;
+			border: 2px solid green;
+		}
+
+		#denied_bt {	
+			background-color: lightcoral;
+			border: 2px solid red;
+		}
 	}
 }
 

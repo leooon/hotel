@@ -54,6 +54,7 @@ let file = {
 	chars: {},
 	progress: {},
 	building: {},
+	coins: 0
 }
 
 const actions = {
@@ -116,15 +117,20 @@ const actions = {
 			],
 			duration: 4000,
 			easing: 'linear',
+			complete: openCheckin,
 		});
 	}
+}
+
+function openCheckin() {
+	document.getElementById('checkin').classList.add('active');
 }
 
 function save() {
 	localStorage.setItem('file', JSON.stringify(file));
 }
 
-document.getElementById('reset').onclick = () => {
+function reset() {
 	localStorage.removeItem('dinheiro');
 	localStorage.removeItem('hotel');
 	localStorage.removeItem('file');
@@ -133,9 +139,6 @@ document.getElementById('reset').onclick = () => {
 }
 
 window.addEventListener('load', () => {
-	file = localStorage.getItem('file') ? JSON.parse(localStorage.getItem('file')) : file;
-
-	const dinheiro = localStorage.getItem('dinheiro');
 	const savedHotel = localStorage.getItem('hotel');
 	
 	if (savedHotel) {
@@ -143,25 +146,84 @@ window.addEventListener('load', () => {
 	} else {
 		localStorage.setItem('hotel', JSON.stringify(hotel));
 	}
-	renderHotel();
-	loadChars();
 
-	if (dinheiro === null) {
+	renderHotel();
+	
+	if (!localStorage.getItem('file')) {
 		document.querySelector('.fudido button').style.display = 'none';
 
 		mensagem('introducao', () => {
-			localStorage.setItem('dinheiro', 1000);
-			document.getElementById('dinheiro').innerHTML = 1000;
+			updateCoins(1000);
 			document.querySelector('.fudido button').style.display = 'block';
 		});
 		
 	} else {
-		document.getElementById('dinheiro').innerHTML = dinheiro;
+		file = JSON.parse(localStorage.getItem('file'));
+
+		document.getElementById('dinheiro').innerHTML = '🪙 ' + file.coins;
 		document.querySelector('.fudido button').style.display = 'block';
 	}
 
+	loadChars();
+
 	showCharsInterval();
+
+	document.querySelector('#reset').addEventListener('click', reset);
+	document.querySelector('#dex_bt').addEventListener('click', openDex);
+
+	if (Object.values(file.chars).some(char => char.location === 'reception')) {
+		openCheckin();
+	}
+	document.querySelector('#checkin_bt').addEventListener('click', ops.checkIn);
+	document.querySelector('#denied_bt').addEventListener('click', ops.deny);
 });
+
+const ops = {
+	firstInLine: () => {
+		return Object.values(file.chars).filter(char => char.location === 'reception').reduce((highest, current) => {
+			return (highest.receptionOrder > current.receptionOrder) ? highest : current;
+		}, {receptionOrder: -1});
+	},
+	checkIn: () => {
+		
+		
+	},
+	deny: () => {
+		const first = ops.firstInLine();
+
+		first.el.style.zIndex = 99999;
+		
+		anime({
+			targets: first.el,
+			keyframes: [
+				{
+					scale: 9,
+					translateY: '-=100px',
+					translateX: '+=60px',
+					duration: 300,
+					easing: 'easeOutQuint'
+				}, {
+					// scaleX: 1.5,
+					// scaleY: 0.5,
+					// duration: 300,
+					// easing: 'easeInQuad'
+				}, {
+					translateY: '+=500px',
+					duration: 1200,
+					easing: 'easeInQuad'
+				}
+			],
+			complete: function () {
+				first.el.remove();
+				delete file.chars[first.id];
+				save();
+			}
+		});
+	},
+	checkOut: () => {
+		
+	}
+}
 
 function loadChars() {
 	Object.values(file.chars).filter(char => char.location === 'street').forEach(char => {
@@ -223,17 +285,12 @@ function renderHotel() {
 }
 
 function comprarAndar() {
-	const dinheiroEl = document.getElementById('dinheiro');
-	const dinheiro = parseInt(dinheiroEl.innerHTML);
-
 	const fudidoEl = document.querySelector('.fudido button');
 	const preco = parseInt(fudidoEl.innerHTML);
 
-	if (dinheiro >= preco) {
-		const newDinheiro = dinheiro - preco;
-		localStorage.setItem('dinheiro', newDinheiro);
-		dinheiroEl.innerHTML = newDinheiro;
-
+	if (file.coins >= preco) {
+		updateCoins(-1 * preco);
+		
 		const andar = Object.keys(hotel.andares).find(key => !hotel.andares[key].comprado);
 		hotel.andares[andar].comprado = true;
 		localStorage.setItem('hotel', JSON.stringify(hotel));
@@ -397,4 +454,11 @@ function getPosition(selector) {
 
 function howMany(type, value) {
 	return Object.values(file.chars).filter(char => char[type] === value).length;
+}
+
+function updateCoins(coins) {
+	file.coins += coins;
+	save();
+
+	document.getElementById('dinheiro').innerHTML = '🪙 ' + file.coins;
 }
