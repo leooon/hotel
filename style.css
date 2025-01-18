@@ -208,6 +208,7 @@ div {
 
 		button {
 			margin: 20px auto;
+			display: none;
 		}
 	}
 }
@@ -223,6 +224,7 @@ div {
 	display: flex;
 	justify-content: center;
 	align-items: center;
+	transition: background-color, border 0.5s ease-in-out;
 
 	&.locked {
 		border: 3px solid black;
