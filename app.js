@@ -39,7 +39,7 @@ const dex = {
 			'floors': 1,
 		},
 	},
-	'dinossaur': {
+	'dinosaur': {
 		'show': {
 			'guests': {
 				'clown': 1
@@ -60,14 +60,36 @@ const dex = {
 		'visit': {
 			'floors': 2,
 		},
-	}
+	},
+	'zombie': {},
+	'werewolf': {},
+	'skeleton': {},
+	'vampire': {},
+	'witch': {},
+	'witcher': {},
+	'goblin': {},
+	'giant': {},
+	'gargoyle': {},
+	'orc': {},
+	'dragon': {},
+	'elf': {},
+	'human': {},
+	'astronaut': {},
+	'alien': {},
+	'alien2': {},
+	'alien3': {},
+	'alien4': {},
+	'alien5': {},
+	'alien6': {},
+	'alien7': {},
 }
 
 let file = {
 	chars: {},
 	progress: {},
 	building: {},
-	coins: 0
+	coins: 0,
+	stage: []
 }
 
 const actions = {
@@ -91,7 +113,7 @@ const actions = {
 		file.chars[id] = char;
 		save();
 	
-		actions.streetWalking(char);
+		actions.street.wandering(char);
 	},
 	renderChar(type) {
 		const el = document.createElement('div');
@@ -105,58 +127,54 @@ const actions = {
 
 		document.getElementById('canvas').appendChild(el);
 
-		el.onclick = (e) => {
-			openDex(type);
-		};
-
 		return el;
 	},
-	streetWalking (char) {
-		const charName = char.type;
-		const el = char.el;
-
-		const ruaRect = document.getElementById('rua').getBoundingClientRect();
-		const targetX = ruaRect.width;
-		const randomAnimationDuration = Math.floor(Math.random() * (36 - 12 + 1) + 12);
-		const randomBottom = Math.floor(Math.random() * (50 - (-10) + 1) + (-10));
-		el.style.transform = `translateY(${ruaRect.top + randomBottom}px)`;
-		el.style.zIndex = 100 +randomBottom;
-
-		sideToggle = !sideToggle;
-		const translateArr = sideToggle ? [-36, targetX] : [targetX, -36];
-
-		anime({
-			targets: el,
-			translateX: translateArr,
-			duration: randomAnimationDuration * 1000,
-			easing: 'linear',
-			complete: function(anim) {
-				el.remove();
-				
-				delete file.chars[char.id];
-				save();
-			},
-			update: function(anim) {
-				const progress = Math.round(anim.progress)
-				
-				if (progress == 40 && !anim.control) {
-					anim.control = true;
-
-					if (checkers.canVisit(charName)) {
-						el.classList.add('clown');
+	street: {
+		wandering (char) {
+			// const ruaRect = document.getElementById('rua').getBoundingClientRect();
+			// const targetX = ruaRect.width;
+			
+			
+			const randomY = helper.rand(-10, 50);
+			char.el.style.transform = `translateY(${getPosition('#rua').y + randomY}px)`;
+			char.el.style.zIndex = 100 + randomY;
+	
+			sideToggle = !sideToggle;
+			const translateArr = sideToggle ? [-36, getPosition('#rua').right] : [getPosition('#rua').right, -36];
+	
+			anime({
+				targets: char.el,
+				translateX: translateArr,
+				duration: helper.rand(12, 36) * 1000,
+				easing: 'linear',
+				complete: function(anim) {
+					char.el.remove();
 					
-						anim.pause();
-
-						actions.visiting(char);
+					delete file.chars[char.id];
+					save();
+				},
+				update: function(anim) {
+					const progress = Math.round(anim.progress)
+					
+					if (progress == 40 && !anim.control) {
+						anim.control = true;
+	
+						if (checkers.canVisit(char.type)) {
+							char.el.classList.add('clown');
+						
+							anim.pause();
+	
+							actions.visiting(char);
+						}
 					}
 				}
-			}
-		});
+			});
+		},
 	},
 	visiting (char) {
 		const order = Object.values(file.chars).filter(char => char.location === 'reception').length + 1;
 
-		const animation = anime({
+		anime({
 			targets: char.el,
 			easing: 'linear',
 			keyframes: [
@@ -175,15 +193,14 @@ const actions = {
 				},
 			],
 			complete: () => {
-				openCheckin();
+				actions.reception.openCheckin();
 				if (file.chars[char.id].receptionOrder != order) actions.adjustLine(char);
 			},
 		});
 
-		updateChar(char.id, {
+		ops.updateChar(char.id, {
 			location: 'reception',
-			receptionOrder: order,
-			animation: animation
+			receptionOrder: order
 		});
 	},
 	adjustLine: (char) => {
@@ -192,85 +209,209 @@ const actions = {
 			duration: 200,
 			easing: 'linear',
 			translateX: getPosition('.gerente').x + (file.chars[char.id].receptionOrder * 35),
-			complete: openCheckin,
+			complete: actions.reception.openCheckin,
 		})
 	},
 	advanceLine: () => {
 		Object.values(file.chars)
 			.filter(char => char.location === 'reception')
 			.forEach(char => {
-				updateChar(char.id, {
+				ops.updateChar(char.id, {
 					receptionOrder: char.receptionOrder - 1
 				});
 
 				if (!char.animation || char.animation.completed) actions.adjustLine(char);
 		});
 	},
-	deny: () => {
-		const first = helper.firstInLine();
+	reception: {
+		checkIn: () => {
+			const first = helper.firstInLine();
+			const floor = actions.building.nextOpenFloor();
 
-		deleteChar(first.id);
-
-		first.el.style.zIndex = 99999;
-		
-		anime({
-			targets: first.el,
-			keyframes: [
-				{
-					scale: 9,
-					translateY: '-=100px',
-					translateX: `+=${Math.floor(Math.random() * 161) - 30}px`,
-					duration: 200,
-					easing: 'easeOutQuint'
-				}, {
-					translateY: '+=500px',
-					duration: 1200,
-					easing: 'easeInQuint'
+			ops.updateChar(first.id, {
+				location: 'hotel',
+				roomFloor: floor.id
+			}, ['receptionOrder']);
+			ops.updateBuilding(floor.id, {
+				guests: file.building[floor.id].guests + 1
+			});
+				
+			const porta = floor.el.querySelector('.porta');
+	
+			anime({
+				targets: first.el,
+				easing: 'linear',
+				keyframes: [
+					{
+						duration: 1400,
+						translateX: getPosition('#recepcao .porta').x,
+					}, {
+						duration: 500,
+						opacity: 0,
+					}, {
+						duration: 500,
+						opacity: 1,
+						translateY: [getPosition(porta).y + 20, getPosition(porta).y + 20],
+					}, {
+						duration: 1000,
+						translateX: 120,
+					}
+				],
+				complete: () => {
+					actions.room.wandering(first.el, porta);
 				}
-			],
-			complete: () => first.el.remove()
-		});
+			});
+	
+			actions.reception.closeCheckin();
+			actions.advanceLine();
+		},
+		deny: () => {
+			const first = helper.firstInLine();
+	
+			ops.deleteChar(first.id);
+	
+			first.el.style.zIndex = 99999;
+			
+			anime({
+				targets: first.el,
+				keyframes: [
+					{
+						scale: 9,
+						translateY: '-=100px',
+						translateX: `+=${Math.floor(Math.random() * 161) - 30}px`,
+						duration: 200,
+						easing: 'easeOutQuint'
+					}, {
+						translateY: '+=500px',
+						duration: 1200,
+						easing: 'easeInQuint'
+					}
+				],
+				complete: () => first.el.remove()
+			});
+			
+			actions.reception.closeCheckin();
+			if (Object.values(file.chars).some(char => char.location === 'reception')) actions.advanceLine();
+		},
+		openCheckin: () => {
+			document.getElementById('checkin').classList.add('active');
+		},
+		closeCheckin: () => {
+			document.getElementById('checkin').classList.remove('active');
+		}
+	},
+	room: {
+		wandering: (el, porta) => {
+			anime({
+				targets: el,
+				duration: 4000,
+				delay: helper.rand(200, 2000),
+				easing: 'linear',
+				loop: true,
+				direction: 'alternate',
+				translateX: getPosition(porta).x - 50,
+			});
+		}
+	},
+	building: {
+		nextOpenFloor: () => {
+			const floor = Object.values(file.building)
+				.filter(floor => floor.guests < 4)
+				.reduce((lowest, floor) => {
+					return !lowest || floor.id < lowest.id ? floor : lowest;
+				});
+	
+			return floor;
+		},
+		nextToBuy: () => {
+			if (!Object.values(file.building).length) return hotel.andares[1];
+
+			const highestFloor = Object.values(file.building)
+				.reduce((highest, floor) => {
+					return !highest || floor.id > highest.id ? floor : highest;
+				});	
+			const next = hotel.andares[highestFloor.id + 1];
+			
+			return next;
+		},
+		purchaseFloor: () => {
+			const next = actions.building.nextToBuy();
+			
+			if (file.coins >= next.preco) {
+				updateCoins(-1 * next.preco);
+				
+				const hotelEL = document.getElementById('hotel');
+				const template = document.querySelector('#andar').content;
+				const floor = template.firstElementChild.cloneNode(true);
+				floor.querySelector('p').innerHTML = next.texto;
+				hotelEL.insertBefore(floor, hotelEL.querySelector('.fudido'));
+				
+				const id = Object.keys(file.building).length ? Math.max(...Object.values(file.building).map(floor => floor.id)) + 1 : 1;
+				document.querySelector('.fudido button').innerHTML = hotel.andares[id + 1].preco;
 		
-		document.getElementById('checkin').classList.remove('active');
-		if (Object.values(file.chars).some(char => char.location === 'reception')) actions.advanceLine();
-	},
-	checkIn: () => {
-		const first = helper.firstInLine();
-
-		const floor = file.building[1];
-		updateChar(first.id, {
-			location: 'hotel'
-		});
-
-		const porta = floor.el.querySelector('.porta');
-
-		anime({
-			targets: first.el,
-			easing: 'linear',
-			keyframes: [
-				{
-					duration: 1400,
-					translateX: getPosition('#recepcao .porta').x,
-				}, {
-					duration: 500,
-					opacity: 0,
-				}, {
-					duration: 500,
-					opacity: 1,
-					translateY: [getPosition(porta).y + 20, getPosition(porta).y + 20],
-				}, {
-					duration: 1000,
-					translateX: 120,
+				file.building[id] = {
+					id: id,
+					guests: 0,
+					el: floor
 				}
-			]
-		});
-
-		actions.advanceLine();
+				save();
+			}
+		}
 	},
-}
+	ux: {
+		openDex: () => {
+			const dexEl = document.getElementById('dex');
+			dexEl.style.display = 'block';
+			const list = dexEl.querySelector('.list');
+			list.innerHTML = '';
 
-function openCheckin() {
-	document.getElementById('checkin').classList.add('active');
+			Object.entries(dex).forEach(([type, entry]) => {
+				const div = document.createElement('div');
+				const char = document.createElement('div');
+
+				if (file.progress?.[type]?.visit) {
+					char.classList.add('char', type);
+				} else {
+					char.classList.add('char', 'locked');
+					char.innerHTML = '🔒';
+				}
+
+				div.appendChild(char);
+				list.appendChild(div);
+			})
+		},
+		closeDex: () => {
+			document.getElementById('dex').style.display = 'none';
+		},
+		openCard: (charName) => {
+			const dexEl = document.getElementById('dex');
+			dexEl.style.display = 'block';
+			
+			const p = dexEl.querySelector('p');
+		
+			const unlocked = dex[charName].unlocked;
+			if (unlocked) {
+				p.innerHTML = charName + '<br><br>';
+			} else {
+				p.innerHTML = '???<br><br>';
+			}
+			
+			const showCondition = [];
+			if (!dex[charName].show.length) showCondition.push('Sem critérios.');
+			for (const condition of chars[charName].show) {
+			}
+			p.innerHTML += 'Aparecer: ' + showCondition.join(', ') + '<br>';
+		
+			const visitCondition = [];
+			if (!dex[charName].visit.length) visitCondition.push('Sem critérios.');
+			for (const condition of dex[charName].visit) {
+				if (condition.minAndares) {
+					visitCondition.push('Pelo menos ' + condition.minAndares + ' quarto disponível.');
+				}
+			}
+			p.innerHTML += 'Visitar: ' + visitCondition.join(', ') + '<br>';
+		}
+	}
 }
 
 function save() {
@@ -295,16 +436,19 @@ window.addEventListener('load', () => {
 
 const load = {
 	loadFile: () => {
-		if (!localStorage.getItem('file')) {
-			mensagem('introducao', () => {
-				updateCoins(1000);
-				document.querySelector('.fudido button').style.display = 'block';
-			});
-			
-		} else {
+		if (localStorage.getItem('file')) {
 			file = JSON.parse(localStorage.getItem('file'));
-			document.getElementById('dinheiro').innerHTML = '🪙 ' + file.coins;
+		} else {
+			load.intro();
 		}
+	},
+	intro: () => {
+		mensagem('introducao', () => {
+			updateCoins(4000);
+			document.querySelector('.fudido button').style.display = 'block';
+
+			file.stage.push('intro');
+		});
 	},
 	chars: () => {
 		Object.values(file.chars).filter(char => char.location === 'street').forEach(char => {
@@ -316,6 +460,16 @@ const load = {
 			file.chars[id].el = el;
 			el.style.transform = `translateY(${getPosition('.gerente').y}px) translateX(${getPosition('.gerente').x + (char.receptionOrder * 35)}px)`;
 		});
+
+		Object.entries(file.chars).filter(([id, char]) => char.location === 'hotel').forEach(([id, char]) => {
+			el = actions.renderChar(char.type);
+			file.chars[id].el = el;
+
+			const floor = file.building[char.roomFloor].el;
+			el.style.transform = `translateY(${(getPosition(floor).bottom) - 30}px) translateX(${getPosition(floor).x + 30}px)`;
+			
+			actions.room.wandering(el, floor.querySelector('.porta'));
+		});
 	},
 	building: () => {
 		const hotelEl = document.getElementById('hotel');
@@ -323,31 +477,38 @@ const load = {
 		Object.entries(file.building).forEach(([key, floor]) => {
 			const template = document.querySelector('#andar').content;
 			const floorEl = template.firstElementChild.cloneNode(true);
-			floorEl.querySelector('p').innerHTML = hotel.andares[1].texto;
+			floorEl.querySelector('p').innerHTML = hotel.andares[key].texto;
 			hotelEl.appendChild(floorEl);
 
 			file.building[key].el = floorEl;
 		});
 
 		const template = document.importNode(document.querySelector('#andar-fudido').content, true);
-		
 		const button = template.querySelector('button');
 		button.innerHTML = andar.preco;
-		button.addEventListener('click', comprarAndar);
+		button.addEventListener('click', actions.building.purchaseFloor);
 		
 		hotelEl.appendChild(template);
 		
 		const fudidoEl = document.querySelector('.fudido button');
-		const nextAndar = Object.values(hotel.andares).find(andar => !andar.comprado);
-		fudidoEl.innerHTML = nextAndar.preco;
+		
+		const nextAndar = Object.keys(file.building).reduce((max, key) => Math.max(max, parseInt(key)), 0) + 1;
+		fudidoEl.innerHTML = hotel.andares[nextAndar].preco;
+
+		if (file.stage.includes('intro')) {
+			document.getElementById('dinheiro').innerHTML = '🪙 ' + file.coins;
+			document.querySelector('.fudido button').style.display = 'block';
+		};
 	},
 	ux: () => {
-		if (Object.values(file.chars).some(char => char.location === 'reception')) openCheckin();
+		if (Object.values(file.chars).some(char => char.location === 'reception')) actions.reception.openCheckin();
 
 		document.querySelector('#reset').addEventListener('click', reset);
-		document.querySelector('#dex_bt').addEventListener('click', openDex);
-		document.querySelector('#checkin_bt').addEventListener('click', actions.checkIn);
-		document.querySelector('#denied_bt').addEventListener('click', actions.deny);
+		document.querySelector('#dex_bt').addEventListener('click', actions.ux.openDex);
+		document.querySelector('#checkin_bt').addEventListener('click', actions.reception.checkIn);
+		document.querySelector('#denied_bt').addEventListener('click', actions.reception.deny);
+
+		actions.ux.openDex();
 	},
 	showCharInterval: () => {
 		actions.showChar();
@@ -356,10 +517,12 @@ const load = {
 }
 
 const helper = {
-	rand: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+	rand: (min, max) => {
+		return Math.floor(Math.random() * (max - min + 1)) + min
+	},
 	firstInLine: () => {
 		const first = Object.values(file.chars)
-			.filter(char => char.receptionOrder > 0)
+			.filter(char => char.location === 'reception')
 			.reduce((highest, char) => {
 				return !highest || char.receptionOrder < highest.receptionOrder ? char : highest;
 			});
@@ -387,64 +550,7 @@ function mensagem(fluxo, callback) {
 	};
 }
 
-function comprarAndar() {
-	const fudidoEl = document.querySelector('.fudido button');
-	const preco = parseInt(fudidoEl.innerHTML);
-
-	if (file.coins >= preco) {
-		updateCoins(-1 * preco);
-		
-		const andar = Object.keys(hotel.andares).find(key => !hotel.andares[key].comprado);
-		hotel.andares[andar].comprado = true;
-		localStorage.setItem('hotel', JSON.stringify(hotel));
-
-		const hotelEl = document.getElementById('hotel');
-
-		const template = document.querySelector('#andar').content;
-		const floor = template.firstElementChild.cloneNode(true);
-		floor.querySelector('p').innerHTML = hotel.andares[andar].texto;
-		hotelEl.insertBefore(floor, hotelEl.querySelector('.fudido'));
-
-		const id = Object.keys(file.building).length ? Math.max(...Object.values(file.building).map(floor => floor.id)) + 1 : 1;
-
-		file.building[id] = {
-			id: id,
-			el: floor
-		}
-		save();
-	}
-}
-
 let sideToggle = false;
-
-function openDex (charName) {
-	const dexEl = document.getElementById('dex');
-	dexEl.style.display = 'block';
-	
-	const p = dexEl.querySelector('p');
-
-	const unlocked = dex[charName].unlocked;
-	if (unlocked) {
-		p.innerHTML = charName + '<br><br>';
-	} else {
-		p.innerHTML = '???<br><br>';
-	}
-	
-	const showCondition = [];
-	if (!dex[charName].show.length) showCondition.push('Sem critérios.');
-	for (const condition of chars[charName].show) {
-	}
-	p.innerHTML += 'Aparecer: ' + showCondition.join(', ') + '<br>';
-
-	const visitCondition = [];
-	if (!dex[charName].visit.length) visitCondition.push('Sem critérios.');
-	for (const condition of dex[charName].visit) {
-		if (condition.minAndares) {
-			visitCondition.push('Pelo menos ' + condition.minAndares + ' quarto disponível.');
-		}
-	}
-	p.innerHTML += 'Visitar: ' + visitCondition.join(', ') + '<br>';
-}
 
 function closeDex () {
 	const dexEl = document.getElementById('dex');
@@ -469,6 +575,8 @@ const solve = {
 
 const checkers = {
 	canShow: (type) => {
+		if (dex[type].show === undefined) return false;
+
 		const ok = [];
 		for (const [condition, rule] of Object.entries(dex[type].show)) {
 			ok.push(solve[condition](rule));
@@ -486,6 +594,8 @@ const checkers = {
 		return false;
 	},
 	canVisit: (type) => {
+		if (dex[type].visit === undefined) return false;
+
 		if (Object.values(file.chars).filter(char => char.location === 'reception').length >= 4) return false;
 
 		const ok = [];
@@ -514,7 +624,9 @@ function getPosition(selector) {
 	const rect = el.getBoundingClientRect();
 	return {
 		x: rect.left + window.scrollX,
-		y: rect.top + window.scrollY
+		y: rect.top + window.scrollY,
+		bottom: rect.bottom + window.scrollY,
+		right: rect.right + window.scrollX
 	};
 }
 
@@ -534,11 +646,21 @@ function updateCoins(coins) {
 	document.getElementById('dinheiro').innerHTML = '🪙 ' + file.coins;
 }
 
-function updateChar(id, update) {
-	Object.assign(file.chars[id], update);
-	save();
-}
-function deleteChar(id) {
-	delete file.chars[id];
-	save();
+const ops = {
+	updateChar: (id, upd = {}, del = []) => {
+		Object.assign(file.chars[id], upd);
+		del.forEach(key => delete file.chars[id][key]);
+	
+		save();
+	},
+	deleteChar: (id) => {
+		delete file.chars[id];
+		save();
+	},
+	updateBuilding: (id, upd = {}, del = []) => {
+		Object.assign(file.building[id], upd);
+		del.forEach(key => delete file.building[id][key]);
+	
+		save();
+	},
 }

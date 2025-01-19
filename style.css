@@ -31,8 +31,25 @@ div {
 	padding: 20px;
 	background-color: white;
 	color: black;
-	z-index: 3;
+	z-index: 1000;
 	display: none;
+
+	.list {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 10px;
+		margin-bottom: 10px;
+
+		> div {
+			border: 1px solid gray;
+			border-radius: 8px;
+			padding: 14px;
+		}
+
+		.char {
+			position: relative;
+		}
+	}
 }
 
 #menu {
@@ -235,5 +252,9 @@ div {
 	&.clown {
 		border: 3px solid red;
 		background-color: white;
+	}
+	&.dinosaur {
+		border: 3px solid darkgreen;
+		background-color: olive;
 	}
 }
