@@ -1,3 +1,7 @@
+const config = {
+	dayMsConversion: 60000,
+}
+
 const textos = {
 	'introducao': [
 		'Olá, você herdou essa poçilga.',
@@ -34,12 +38,14 @@ let hotel = {
 
 const dex = {
 	'clown': {
+		'stay': 1,
 		'show': {},
 		'visit': {
 			'floors': 1,
 		},
 	},
 	'dinosaur': {
+		'stay': 2,
 		'show': {
 			'guests': {
 				'clown': 1
@@ -52,6 +58,7 @@ const dex = {
 		},
 	},
 	'ghost': {
+		'stay': 2,
 		'show': {
 			'guests': {
 				'dinosaur': 1
@@ -230,7 +237,8 @@ const actions = {
 
 			ops.updateChar(first.id, {
 				location: 'hotel',
-				roomFloor: floor.id
+				roomFloor: floor.id,
+				checkinTime: Date.now()
 			}, ['receptionOrder']);
 			ops.updateBuilding(floor.id, {
 				guests: file.building[floor.id].guests + 1
@@ -311,6 +319,17 @@ const actions = {
 				direction: 'alternate',
 				translateX: getPosition(porta).x - 50,
 			});
+		}
+	},
+	char: {
+		checkCheckout: () => {
+			Object.values(file.chars)
+				.filter(char => char.location === 'hotel')
+				.forEach(char => {
+					if (Date.now() - char.checkinTime > dex[char.type].stay * config.dayMsConversion) {
+						console.log('checkout');
+					}
+				});
 		}
 	},
 	building: {
@@ -508,7 +527,28 @@ const load = {
 		document.querySelector('#checkin_bt').addEventListener('click', actions.reception.checkIn);
 		document.querySelector('#denied_bt').addEventListener('click', actions.reception.deny);
 
-		actions.ux.openDex();
+		load.updateTime();
+		// setInterval(load.updateTime, 60000);
+		setInterval(load.updateTime, 1000);
+	},
+	updateTime: () => {
+		const now = new Date();
+		// const realMinute = now.getMinutes();
+		const realMinute = now.getSeconds();
+		
+		const gameTime = (1440 / (config.dayMsConversion / 1000)) * realMinute;
+		const gameHour = Math.floor(gameTime / 60);
+		const gameMinute = gameTime % 60;
+
+		document.getElementById('clock').innerHTML = gameHour.toString().padStart(2, '0') +':'+ gameMinute.toString().padStart(2, '0');
+
+		if (gameHour >= 6 && gameHour < 18) {
+			document.querySelector('#canvas').style.backgroundColor = 'aqua';
+		} else {
+			document.querySelector('#canvas').style.backgroundColor = 'midnightblue';
+		}
+
+		actions.char.checkCheckout();
 	},
 	showCharInterval: () => {
 		actions.showChar();
