@@ -103,7 +103,6 @@ div {
 	}
 }
 
-
 #canvas {
 	height: 100dvh;
 	width: 100vw;
@@ -274,3 +273,13 @@ div {
 		background-color: olive;
 	}
 }
+
+.custom-header {
+    position: absolute;
+    top: -60px;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background-color: tomato;
+    z-index: 1000;
+  }
