@@ -5,7 +5,7 @@
 	"start_url": "/hotel/index.html",
 	"display": "standalone",
 	"background_color": "#000000",
-	"theme_color": "#4CAF50",
+	"theme_color": "rgba(0, 0, 0, 0)",
 	"icons": [
 		{
 			"src": "/hotel/icons/icon-192x192.png",
