@@ -114,7 +114,7 @@ div {
 	flex-direction: column;
 	align-items: center;
 	transition: background-color 1s ease-in-out;
-	border: 3px solid olive;
+	border: 3px solid navy;
 }
 
 #ceu {
@@ -278,7 +278,7 @@ div {
 
 .custom-header {
     position: absolute;
-    top: -60px;
+    top: -50px;
     left: 0;
     width: 100%;
     height: 60px;
