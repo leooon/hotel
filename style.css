@@ -2,6 +2,16 @@ body {
 	margin: 0;
 	overflow: hidden;
 }
+@media screen and (orientation: portrait) {
+	body {
+		display: block;
+	}
+}
+@media screen and (orientation: landscape) {
+	body {
+		display: none;
+	}
+}
 
 div {
 	box-sizing: border-box;

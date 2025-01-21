@@ -704,3 +704,63 @@ const ops = {
 		save();
 	},
 }
+
+if ("serviceWorker" in navigator && "PushManager" in window) {
+    navigator.serviceWorker.register("/sw.js")
+        .then((registration) => {
+            console.log("Service Worker registered:", registration);
+        })
+        .catch((error) => {
+            console.error("Service Worker registration failed:", error);
+        });
+} else {
+    console.warn("Push notifications are not supported in this browser.");
+}
+// Simulate push notification every minute
+function simulatePushNotification() {
+    if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+			action: "simulatePush",
+			message: `Test notification at ${new Date().toLocaleTimeString()}`,
+		});
+		
+		setInterval(() => {
+            navigator.serviceWorker.controller.postMessage({
+                action: "simulatePush",
+                message: `Test notification at ${new Date().toLocaleTimeString()}`,
+            });
+        }, 60000); // Every minute
+    }
+}
+
+// Listen for the simulation message in the service worker
+navigator.serviceWorker.ready.then((registration) => {
+	console.log('oi');
+	
+    registration.active.postMessage({
+        action: "simulatePush",
+        message: "Initial test notification",
+    });
+    simulatePushNotification();
+});
+
+function requestNotificationPermission() {
+    if (Notification.permission === "default") {
+        Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+                console.log("Notification permission granted.");
+            } else if (permission === "denied") {
+                console.warn("Notification permission denied.");
+            }
+        });
+    } else if (Notification.permission === "granted") {
+        console.log("Notification permission already granted.");
+    } else {
+        console.warn("Notifications are blocked.");
+    }
+}
+
+// Request permission when the page loads
+document.addEventListener("DOMContentLoaded", () => {
+    requestNotificationPermission();
+});
