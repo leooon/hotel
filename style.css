@@ -106,7 +106,7 @@ div {
 }
 
 #canvas {
-	height: calc(100vh - env(safe-area-inset-top));
+	height: calc(100dvh - env(safe-area-inset-top));
 	width: 100vw;
 	position: relative;
 	/* overflow: hidden; */
@@ -114,7 +114,7 @@ div {
 	flex-direction: column;
 	align-items: center;
 	transition: background-color 1s ease-in-out;
-	border: 3px solid black;
+	border: 3px solid purple;
 }
 
 #ceu {
