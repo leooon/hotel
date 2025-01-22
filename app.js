@@ -1,5 +1,5 @@
 const config = {
-	dayMsConversion: 60000,
+	dayMsConversion: 24000,
 }
 
 const textos = {
@@ -96,7 +96,8 @@ let file = {
 	progress: {},
 	building: {},
 	coins: 0,
-	stage: []
+	stage: [],
+	start: Date.now(),
 }
 
 const actions = {
@@ -301,11 +302,20 @@ const actions = {
 			actions.reception.closeCheckin();
 			if (Object.values(file.chars).some(char => char.location === 'reception')) actions.advanceLine();
 		},
+		checkout: () => {
+			console.log('checkout');
+		},
 		openCheckin: () => {
 			document.getElementById('checkin').classList.add('active');
 		},
 		closeCheckin: () => {
 			document.getElementById('checkin').classList.remove('active');
+		},
+		openCheckout: () => {
+			document.getElementById('checkout_bt').classList.add('active');
+		},
+		closeCheckout: () => {
+			document.getElementById('checkout_bt').classList.remove('active');
 		}
 	},
 	room: {
@@ -327,7 +337,42 @@ const actions = {
 				.filter(char => char.location === 'hotel')
 				.forEach(char => {
 					if (Date.now() - char.checkinTime > dex[char.type].stay * config.dayMsConversion) {
-						console.log('checkout');
+						anime.remove(char.el);
+						
+						const door = file.building[char.roomFloor].el.querySelector('.porta');
+						const reception = document.getElementById('recepcao').querySelector('.porta');
+
+						anime({
+							targets: char.el,
+							easing: 'linear',
+							keyframes: [
+								{
+									duration: 1400,
+									translateX: getPosition(door).x,
+								}, {
+									duration: 500,
+									opacity: 0,
+								}, {
+									duration: 500,
+									opacity: 1,
+									translateY: [getPosition(reception).y + 20, getPosition(reception).y + 20],
+								}, {
+									duration: 500,
+									translateX: 282,
+								}
+								
+							],
+							complete: () => {
+								actions.reception.openCheckout();
+							}
+						});
+
+						ops.updateBuilding(char.roomFloor, {
+							guests: file.building[char.roomFloor].guests - 1
+						})
+						ops.updateChar(char.id, {
+							location: 'checkout'
+						}, ['checkinTime', 'roomFloor']);
 					}
 				});
 		}
@@ -453,6 +498,7 @@ window.addEventListener('load', () => {
 	load.showCharInterval();
 });
 
+let teste = 0;
 const load = {
 	loadFile: () => {
 		if (localStorage.getItem('file')) {
@@ -526,23 +572,22 @@ const load = {
 		document.querySelector('#dex_bt').addEventListener('click', actions.ux.openDex);
 		document.querySelector('#checkin_bt').addEventListener('click', actions.reception.checkIn);
 		document.querySelector('#denied_bt').addEventListener('click', actions.reception.deny);
+		document.querySelector('#checkout_bt').addEventListener('click', actions.reception.checkout);
 
 		load.updateTime();
-		// setInterval(load.updateTime, 60000);
 		setInterval(load.updateTime, 1000);
 	},
 	updateTime: () => {
-		const now = new Date();
-		// const realMinute = now.getMinutes();
-		const realMinute = now.getSeconds();
-		
-		const gameTime = (1440 / (config.dayMsConversion / 1000)) * realMinute;
-		const gameHour = Math.floor(gameTime / 60);
-		const gameMinute = gameTime % 60;
+		const now = Date.now();
+		const elapsed = now - file.start;
 
-		document.getElementById('clock').innerHTML = gameHour.toString().padStart(2, '0') +':'+ gameMinute.toString().padStart(2, '0');
+		const elapsedToday = elapsed % config.dayMsConversion;
+		const hours = Math.floor(elapsedToday / (config.dayMsConversion / 24));
+		const minutes = Math.floor((elapsedToday % (config.dayMsConversion / 24)) / (config.dayMsConversion / 1440));
 
-		if (gameHour >= 6 && gameHour < 18) {
+		document.getElementById('clock').innerHTML = hours.toString().padStart(2, '0') +':'+ minutes.toString().padStart(2, '0');
+
+		if (hours >= 6 && hours < 18) {
 			document.querySelector('#canvas').style.backgroundColor = 'aqua';
 		} else {
 			document.querySelector('#canvas').style.backgroundColor = 'midnightblue';
@@ -704,63 +749,3 @@ const ops = {
 		save();
 	},
 }
-
-if ("serviceWorker" in navigator && "PushManager" in window) {
-    navigator.serviceWorker.register("/sw.js")
-        .then((registration) => {
-            console.log("Service Worker registered:", registration);
-        })
-        .catch((error) => {
-            console.error("Service Worker registration failed:", error);
-        });
-} else {
-    console.warn("Push notifications are not supported in this browser.");
-}
-// Simulate push notification every minute
-function simulatePushNotification() {
-    if (navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-			action: "simulatePush",
-			message: `Test notification at ${new Date().toLocaleTimeString()}`,
-		});
-		
-		setInterval(() => {
-            navigator.serviceWorker.controller.postMessage({
-                action: "simulatePush",
-                message: `Test notification at ${new Date().toLocaleTimeString()}`,
-            });
-        }, 60000); // Every minute
-    }
-}
-
-// Listen for the simulation message in the service worker
-navigator.serviceWorker.ready.then((registration) => {
-	console.log('oi');
-	
-    registration.active.postMessage({
-        action: "simulatePush",
-        message: "Initial test notification",
-    });
-    simulatePushNotification();
-});
-
-function requestNotificationPermission() {
-    if (Notification.permission === "default") {
-        Notification.requestPermission().then((permission) => {
-            if (permission === "granted") {
-                console.log("Notification permission granted.");
-            } else if (permission === "denied") {
-                console.warn("Notification permission denied.");
-            }
-        });
-    } else if (Notification.permission === "granted") {
-        console.log("Notification permission already granted.");
-    } else {
-        console.warn("Notifications are blocked.");
-    }
-}
-
-// Request permission when the page loads
-document.addEventListener("DOMContentLoaded", () => {
-    requestNotificationPermission();
-});
