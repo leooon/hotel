@@ -894,7 +894,7 @@ const ops = {
 		save();
 	},
 	updateLocation: (location, action, id) => {
-		if (!file.locations[location]) file.locations[location] = [];
+		if (!file?.locations[location]) file.locations[location] = [];
 
 		if (action === 'add') {
 			file.locations[location].push(id);
