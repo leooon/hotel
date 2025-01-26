@@ -106,6 +106,7 @@ const dex = {
 };
 
 let file = {
+	version: 0.1,
 	chars: {},
 	progress: {},
 	building: {},
@@ -627,7 +628,11 @@ window.addEventListener('load', () => {
 const load = {
 	loadFile: () => {
 		if (localStorage.getItem('file')) {
-			file = JSON.parse(localStorage.getItem('file'));
+			tempFile = JSON.parse(localStorage.getItem('file'));
+
+			if (tempFile.version === file.version) {
+				file = tempFile;
+			}
 		}
 		
 		if (!file.stage?.includes('intro')) {
