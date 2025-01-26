@@ -8,28 +8,26 @@ const textos = {
 		'Benção ou maldição? Vamos descobrir.',
 		'Para atrair algum desesperado, construa um quarto minimamente habitável.',
 	],
+	'noFloorAvailable': [
+		'Nenhum andar disponível.',
+	]
 }
 
 let hotel = {
-	'andares': {
-		'1': {
+	andares: {
+		1: {
 			'texto': '1.º andar',
 			'preco': 1000,
 			'comprado': false,
 		},
-		'2': {
+		2: {
 			'texto': '2.º andar',
 			'preco': 2500,
 			'comprado': false,
 		},
-		'3': {
+		3: {
 			'texto': '3.º andar',
 			'preco': 6000,
-			'comprado': false,
-		},
-		'4': {
-			'texto': '4.º andar',
-			'preco': 15000,
 			'comprado': false,
 		},
 	},
@@ -37,64 +35,81 @@ let hotel = {
 }
 
 const dex = {
-	'clown': {
-		'stay': 1,
-		'show': {},
-		'visit': {
-			'floors': 1,
+	clown: {
+		name: 'Palhaço',
+		stay: 1,
+		show: {
+			hotel: 1,
+		},
+		visit: {
+			floors: 1,
 		},
 	},
-	'dinosaur': {
-		'stay': 2,
-		'show': {
-			'guests': {
-				'clown': 1
+	dinosaur: {
+		name: 'Dinossauro',
+		stay: 2,
+		show: {
+			guests: {
+				clown: 1,
 			},
 		},
-		'visit': {
-			'guests': {
-				'clown': 3
+		visit: {
+			guests: {
+				clown: 3,
 			},
 		},
 	},
-	'ghost': {
-		'stay': 2,
-		'show': {
-			'guests': {
-				'dinosaur': 1
+	ghost: {
+		name: 'Fantasma',
+		stay: 2,
+		show: {
+			guests: {
+				dinosaur: 1,
 			},
 		},
-		'visit': {
-			'floors': 2,
+		visit: {
+			floors: 2,
 		},
 	},
-	'zombie': {},
-	'werewolf': {},
-	'skeleton': {},
-	'vampire': {},
-	'witch': {},
-	'witcher': {},
-	'goblin': {},
-	'giant': {},
-	'gargoyle': {},
-	'orc': {},
-	'dragon': {},
-	'elf': {},
-	'human': {},
-	'astronaut': {},
-	'alien': {},
-	'alien2': {},
-	'alien3': {},
-	'alien4': {},
-	'alien5': {},
-	'alien6': {},
-	'alien7': {},
-}
+	lord: {
+		name: 'Cryptic Lord From Parallel Realm',
+		stay: 3,
+		show: {
+			guests: {
+				ghost: 4,
+			},
+		},
+		visit: {
+			floors: 3,
+		},
+	},
+	werewolf: {},
+	skeleton: {},
+	vampire: {},
+	witch: {},
+	witcher: {},
+	goblin: {},
+	giant: {},
+	gargoyle: {},
+	orc: {},
+	dragon: {},
+	elf: {},
+	human: {},
+	astronaut: {},
+	alien: {},
+	alien2: {},
+	alien3: {},
+	alien4: {},
+	alien5: {},
+	alien6: {},
+	alien7: {},
+};
 
 let file = {
 	chars: {},
 	progress: {},
 	building: {},
+	locations: {},
 	coins: 0,
 	stage: [],
 	start: Date.now(),
@@ -112,16 +127,16 @@ const actions = {
 		const type = allowedTypes[helper.rand(0, allowedTypes.length - 1)];
 	
 		const id = Object.keys(file.chars).length ? Math.max(...Object.values(file.chars).map(char => char.id)) + 1 : 1;
-		const char = {
+		file.chars[id] = {};
+
+		ops.updateChar(id, {
 			id: id,
 			type: type,
 			location: 'street',
 			el: actions.renderChar(type)
-		}
-		file.chars[id] = char;
-		save();
+		});
 	
-		actions.street.wandering(char);
+		actions.street.wandering(file.chars[id]);
 	},
 	renderChar(type) {
 		const el = document.createElement('div');
@@ -139,16 +154,12 @@ const actions = {
 	},
 	street: {
 		wandering (char) {
-			// const ruaRect = document.getElementById('rua').getBoundingClientRect();
-			// const targetX = ruaRect.width;
-			
-			
 			const randomY = helper.rand(-10, 50);
-			char.el.style.transform = `translateY(${getPosition('#rua').y + randomY}px)`;
+			char.el.style.transform = `translateY(${getPosition('#street').y + randomY}px)`;
 			char.el.style.zIndex = 100 + randomY;
 	
 			sideToggle = !sideToggle;
-			const translateArr = sideToggle ? [-36, getPosition('#rua').right] : [getPosition('#rua').right, -36];
+			const translateArr = sideToggle ? [-36, getPosition('#street').right] : [getPosition('#street').right, -36];
 	
 			anime({
 				targets: char.el,
@@ -156,10 +167,7 @@ const actions = {
 				duration: helper.rand(12, 36) * 1000,
 				easing: 'linear',
 				complete: function(anim) {
-					char.el.remove();
-					
-					delete file.chars[char.id];
-					save();
+					ops.deleteChar(char.id);
 				},
 				update: function(anim) {
 					const progress = Math.round(anim.progress)
@@ -236,6 +244,11 @@ const actions = {
 			const first = helper.firstInLine();
 			const floor = actions.building.nextOpenFloor();
 
+			if (!floor) {
+				actions.ux.mensagem('noFloorAvailable');
+				return false;
+			};
+
 			ops.updateChar(first.id, {
 				location: 'hotel',
 				roomFloor: floor.id,
@@ -303,7 +316,35 @@ const actions = {
 			if (Object.values(file.chars).some(char => char.location === 'reception')) actions.advanceLine();
 		},
 		checkout: () => {
-			console.log('checkout');
+			const charId = file.locations['checkout'][0];
+			const char = file.chars[charId];
+			
+			anime({
+				targets: char.el,
+				easing: 'linear',
+				keyframes: [
+					{
+						duration: 1000,
+						translateX: getPosition('#escada').x
+					},
+					{
+						duration: 2000,
+						translateY: getPosition('#street').bottom
+					},
+				],
+				complete: () => {
+					ops.deleteChar(charId);
+				}
+			});
+
+			ops.updateChar(charId, {
+				location: 'temporary',
+				activity: 'leavingHotel',
+			});
+			ops.updateCoins(600);
+
+			if (!Object.values(file.chars).some(char => char.activity === 'waitingCheckout'))
+				actions.reception.closeCheckout();
 		},
 		openCheckin: () => {
 			document.getElementById('checkin').classList.add('active');
@@ -363,6 +404,10 @@ const actions = {
 								
 							],
 							complete: () => {
+								ops.updateChar(char.id, {
+									activity: 'waitingCheckout'
+								});
+
 								actions.reception.openCheckout();
 							}
 						});
@@ -371,7 +416,8 @@ const actions = {
 							guests: file.building[char.roomFloor].guests - 1
 						})
 						ops.updateChar(char.id, {
-							location: 'checkout'
+							location: 'checkout',
+							activity: 'goingToCheckout'
 						}, ['checkinTime', 'roomFloor']);
 					}
 				});
@@ -379,12 +425,14 @@ const actions = {
 	},
 	building: {
 		nextOpenFloor: () => {
-			const floor = Object.values(file.building)
-				.filter(floor => floor.guests < 4)
-				.reduce((lowest, floor) => {
-					return !lowest || floor.id < lowest.id ? floor : lowest;
-				});
-	
+			const floors = Object.values(file.building).filter(floor => floor.guests < 4);
+
+			if (!floors.length) return null;
+
+			const floor = floors.reduce((lowest, floor) => {
+				return !lowest || floor.id < lowest.id ? floor : lowest;
+			});
+
 			return floor;
 		},
 		nextToBuy: () => {
@@ -402,7 +450,7 @@ const actions = {
 			const next = actions.building.nextToBuy();
 			
 			if (file.coins >= next.preco) {
-				updateCoins(-1 * next.preco);
+				ops.updateCoins(-1 * next.preco);
 				
 				const hotelEL = document.getElementById('hotel');
 				const template = document.querySelector('#andar').content;
@@ -411,7 +459,12 @@ const actions = {
 				hotelEL.insertBefore(floor, hotelEL.querySelector('.fudido'));
 				
 				const id = Object.keys(file.building).length ? Math.max(...Object.values(file.building).map(floor => floor.id)) + 1 : 1;
-				document.querySelector('.fudido button').innerHTML = hotel.andares[id + 1].preco;
+
+				if (hotel.andares[id + 1]) {
+					document.querySelector('.fudido button').innerHTML = hotel.andares[id + 1].preco;
+				} else {
+					document.querySelector('.fudido button').style.display = 'none';
+				}
 		
 				file.building[id] = {
 					id: id,
@@ -425,13 +478,27 @@ const actions = {
 	ux: {
 		openDex: () => {
 			const dexEl = document.getElementById('dex');
+
+			if (dexEl.style.display === 'block') {
+				actions.ux.closeDex();
+				return false;
+			}
+
 			dexEl.style.display = 'block';
 			const list = dexEl.querySelector('.list');
+			list.style.display = 'grid';
 			list.innerHTML = '';
 
 			Object.entries(dex).forEach(([type, entry]) => {
 				const div = document.createElement('div');
 				const char = document.createElement('div');
+
+				if (file.progress?.[type]?.show) {
+					char.classList.add('showed');
+					char.addEventListener('click', () => {
+						actions.ux.openDexDetail(type);
+					})
+				}
 
 				if (file.progress?.[type]?.visit) {
 					char.classList.add('char', type);
@@ -446,6 +513,47 @@ const actions = {
 		},
 		closeDex: () => {
 			document.getElementById('dex').style.display = 'none';
+			
+			document.querySelector('#dex #close_dex').style.display = 'inline';
+			document.querySelector('#dex .details').style.display = 'none';
+			document.querySelector('#dex #back_dex').style.display = 'none';
+		},
+		openDexDetail: (type) => {
+			document.querySelector('#dex .list').style.display = 'none';
+			document.querySelector('#dex #close_dex').style.display = 'none';
+			document.querySelector('#dex #back_dex').style.display = 'inline';
+
+			const details = document.querySelector('#dex .details');
+			details.style.display = 'flex';
+
+			if (file.progress?.[type]?.visit) {
+				let text = '';
+				text += '<b>Aparecer:</b><br>'+ solve.texts(dex[type].show);
+				text += '<b>Visitar:</b><br>'+ solve.texts(dex[type].visit);
+				
+				details.querySelector('.name').innerHTML = dex[type].name;
+				details.querySelector('.char').classList = ['char'];
+				details.querySelector('.char').classList.add(type);
+				details.querySelector('.char').innerHTML = '';
+				details.querySelector('.rules').innerHTML = text;
+			} else {
+				let text = '';
+				text += '<b>Aparecer:</b><br>'+ solve.texts(dex[type].show);
+				text += '<b>Visitar:</b><br>'+ solve.texts(dex[type].visit);
+				
+				details.querySelector('.name').innerHTML = '???';
+				details.querySelector('.char').classList = ['char'];
+				details.querySelector('.char').classList.add('locked');
+				details.querySelector('.char').innerHTML = '🔒';
+				details.querySelector('.rules').innerHTML = text;
+			}
+		},
+		backDex: () => {
+			document.querySelector('#dex .list').style.display = 'grid';
+			document.querySelector('#dex #close_dex').style.display = 'inline';
+
+			document.querySelector('#dex .details').style.display = 'none';
+			document.querySelector('#dex #back_dex').style.display = 'none';
 		},
 		openCard: (charName) => {
 			const dexEl = document.getElementById('dex');
@@ -474,6 +582,24 @@ const actions = {
 				}
 			}
 			p.innerHTML += 'Visitar: ' + visitCondition.join(', ') + '<br>';
+		},
+		mensagem: (fluxo, callback) => {
+			const quadro = document.querySelector('#quadro');
+			const texto = quadro.querySelector('p');
+			let index = 0;
+		
+			quadro.style.display = 'block';
+			texto.innerHTML = textos[fluxo][index];
+		
+			quadro.onclick = () => {
+				index++;
+				if (index < textos[fluxo].length) {
+					texto.innerHTML = textos[fluxo][index];
+				} else {
+					quadro.style.display = 'none';
+					if (callback) callback();
+				}
+			};
 		}
 	}
 }
@@ -498,18 +624,21 @@ window.addEventListener('load', () => {
 	load.showCharInterval();
 });
 
-let teste = 0;
 const load = {
 	loadFile: () => {
 		if (localStorage.getItem('file')) {
 			file = JSON.parse(localStorage.getItem('file'));
-		} else {
+		}
+		
+		if (!file.stage?.includes('intro')) {
 			load.intro();
 		}
 	},
 	intro: () => {
-		mensagem('introducao', () => {
-			updateCoins(4000);
+		actions.ux.mensagem('introducao', () => {
+			ops.updateCoins(1000);
+
+			document.querySelector('.fudido button').innerHTML = hotel.andares[1].preco;
 			document.querySelector('.fudido button').style.display = 'block';
 
 			file.stage.push('intro');
@@ -517,7 +646,7 @@ const load = {
 	},
 	chars: () => {
 		Object.values(file.chars).filter(char => char.location === 'street').forEach(char => {
-			delete file.chars[char.id];
+			ops.deleteChar(char.id);
 		});
 	
 		Object.entries(file.chars).filter(([id, char]) => char.location === 'reception').forEach(([id, char]) => {
@@ -534,6 +663,21 @@ const load = {
 			el.style.transform = `translateY(${(getPosition(floor).bottom) - 30}px) translateX(${getPosition(floor).x + 30}px)`;
 			
 			actions.room.wandering(el, floor.querySelector('.porta'));
+		});
+
+		const porta = document.getElementById('recepcao').querySelector('.porta');
+		
+		Object.entries(file.chars).filter(([id, char]) => char.location === 'checkout').forEach(([id, char]) => {
+			el = actions.renderChar(char.type);
+			file.chars[id].el = el;
+
+			el.style.transform = `translateY(${(getPosition(porta).bottom - 30)}px) translateX(282px)`;
+
+			actions.reception.openCheckout();
+		});
+
+		Object.entries(file.chars).filter(([id, char]) => char.location === 'temporary').forEach(([id, char]) => {
+			ops.deleteChar(id);
 		});
 	},
 	building: () => {
@@ -557,12 +701,18 @@ const load = {
 		
 		const fudidoEl = document.querySelector('.fudido button');
 		
-		const nextAndar = Object.keys(file.building).reduce((max, key) => Math.max(max, parseInt(key)), 0) + 1;
-		fudidoEl.innerHTML = hotel.andares[nextAndar].preco;
+		const highestFloor = Object.values(file.building).reduce((highest, floor) => Math.max(highest, floor.id), 0);
 
 		if (file.stage.includes('intro')) {
 			document.getElementById('dinheiro').innerHTML = '🪙 ' + file.coins;
-			document.querySelector('.fudido button').style.display = 'block';
+			
+			if (hotel.andares[highestFloor + 1]) {
+				fudidoEl.style.display = 'block';
+				fudidoEl.innerHTML = hotel.andares[highestFloor + 1].preco;
+			} else {
+				fudidoEl.innerHTML = 'Sem andares';
+				fudidoEl.style.display = 'none';
+			}
 		};
 	},
 	ux: () => {
@@ -573,6 +723,8 @@ const load = {
 		document.querySelector('#checkin_bt').addEventListener('click', actions.reception.checkIn);
 		document.querySelector('#denied_bt').addEventListener('click', actions.reception.deny);
 		document.querySelector('#checkout_bt').addEventListener('click', actions.reception.checkout);
+		document.querySelector('#dex #close_dex').addEventListener('click', actions.ux.closeDex);
+		document.querySelector('#dex #back_dex').addEventListener('click', actions.ux.backDex);
 
 		load.updateTime();
 		setInterval(load.updateTime, 1000);
@@ -613,38 +765,16 @@ const helper = {
 			});
 
 		return first;
-	},
-}
-
-function mensagem(fluxo, callback) {
-	const quadro = document.querySelector('#quadro');
-	const texto = quadro.querySelector('p');
-	let index = 0;
-
-	quadro.style.display = 'block';
-	texto.innerHTML = textos[fluxo][index];
-
-	quadro.onclick = () => {
-		index++;
-		if (index < textos[fluxo].length) {
-			texto.innerHTML = textos[fluxo][index];
-		} else {
-			quadro.style.display = 'none';
-			if (callback) callback();
-		}
-	};
+	},	
 }
 
 let sideToggle = false;
 
-function closeDex () {
-	const dexEl = document.getElementById('dex');
-	dexEl.style.display = 'none';
-}
-document.querySelector('#dex button').addEventListener('click', closeDex);
-
 const solve = {
-	'guests': (rules) => {
+	hotel: (rules) => {
+		return true;
+	},
+	guests: (rules) => {
 		const ok = [];
 		for (const [type, min] of Object.entries(rules)) {
 			ok.push(howMany({type: type, location: 'hotel'}) >= min);
@@ -652,9 +782,24 @@ const solve = {
 	
 		return ok.every(value => value);
 	},
-	'floors': (min) => {
+	floors: (min) => {
 		const floorCount = Object.entries(file.building).length;
 		return floorCount >= min;
+	},
+	texts: (rules) => {
+		let text = '';
+
+		Object.entries(rules).forEach(([ruleType, requirement]) => {
+			if (ruleType === 'hotel') {
+				text += `Esses desesperados aparecem por qualquer motivo.<br><br>`;
+			} else if (ruleType === 'guests') {
+				text += `Pelo menos ${Object.entries(requirement).map(([guestType, min]) => `${min} ${dex[guestType].name}`).join(', ')} devem estar hospedados.<br>`;
+			} else if (ruleType === 'floors') {
+				text += `Pelo menos ${requirement} andar(es) construído.<br>`;
+			}
+		});
+
+		return text;
 	}
 }
 
@@ -724,21 +869,21 @@ function howMany(filters) {
 	}).length;
 }
 
-function updateCoins(coins) {
-	file.coins += coins;
-	save();
-
-	document.getElementById('dinheiro').innerHTML = '🪙 ' + file.coins;
-}
-
 const ops = {
 	updateChar: (id, upd = {}, del = []) => {
+		if (upd.location) {
+			if (file.chars[id].location) ops.updateLocation(file.chars[id].location, 'del', id);
+			ops.updateLocation(upd.location, 'add', id);
+		};
+		
 		Object.assign(file.chars[id], upd);
 		del.forEach(key => delete file.chars[id][key]);
-	
+
 		save();
 	},
 	deleteChar: (id) => {
+		ops.updateLocation(file.chars[id].location, 'del', id);
+		
 		delete file.chars[id];
 		save();
 	},
@@ -748,4 +893,21 @@ const ops = {
 	
 		save();
 	},
+	updateLocation: (location, action, id) => {
+		if (!file.locations[location]) file.locations[location] = [];
+
+		if (action === 'add') {
+			file.locations[location].push(id);
+		} else if (action === 'del') {
+			file.locations[location] = file.locations[location].filter(charId => charId != id);
+		}
+		
+		save();
+	},
+	updateCoins: (coins) => {
+		file.coins += coins;
+		save();
+
+		document.getElementById('dinheiro').innerHTML = '🪙 ' + file.coins;
+	}
 }
