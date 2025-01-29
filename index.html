@@ -12,7 +12,14 @@
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
+	<div id="foto">
+		<img src="foto.png" alt="">
+	</div>
 	<div id="canvas">
+		<div id="quadro">
+			<p></p>
+			<button>próximo</button>
+		</div>
 		<div id="dex">
 			<div class="list"></div>
 			<div class="details">
@@ -23,31 +30,32 @@
 			<button id="close_dex">fechar</button>
 			<button id="back_dex">voltar</button>
 		</div>
-		<div id="quadro">
-			<p></p>
-			<button>próximo</button>
-		</div>
-		<div id="menu">
-			<div id="dinheiro">🪙 0</div>
+		<div id="info_bar">
+			<div id="coins">🪙 0</div>
 			<div id="dex_bt">dex</div>
 			<div id="clock">00:00</div>
+			<div id="godmode">god mode</div>
 			<div id="reset">reset</div>
 		</div>
-		<div id="ceu"></div>
-		<div id="hotel">
-			<div id="escada"></div>
-			<div id="recepcao">
-				<div id="checkin">
-					<button id="checkin_bt">Check-In</button>
-					<button id="denied_bt">Chutar</button>
+		<div id="stage">
+			<div id="sky"></div>
+			<div id="stars"></div>
+			<div id="hotel">
+				<div id="recepcao">
+					<div id="escada"></div>
+					<div id="checkin">
+						<button id="checkin_bt">Check-In</button>
+						<button id="denied_bt">Chutar</button>
+					</div>
+					<button id="checkout_bt">Checkout</button>
+					<div class="gerente"></div>
+					<p>RECEPÇÃO</p>
+					<div class="porta"></div>
 				</div>
-				<button id="checkout_bt">Checkout</button>
-				<div class="gerente"></div>
-				<p>RECEPÇÃO</p>
-				<div class="porta"></div>
 			</div>
+			<div id="street"></div>
+			<div id="chars"></div>
 		</div>
-		<div id="street"></div>
 	</div>
 
 	<template id="andar">

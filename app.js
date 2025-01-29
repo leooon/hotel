@@ -1,12 +1,40 @@
 const config = {
+	dayMsConversion: 1000 * 60 * 60,
+}
+const godConfig = {
 	dayMsConversion: 24000,
 }
 
 const textos = {
-	'introducao': [
-		'Olá, você herdou essa poçilga.',
-		'Benção ou maldição? Vamos descobrir.',
-		'Para atrair algum desesperado, construa um quarto minimamente habitável.',
+	'intro': [
+		'Oi amigue, obrigado por testar o protótipo do meu joguinho!<br><br>Você é um amigue.',
+		'Me chame a qualquer momento para tirar dúvidas e reclamar.<br><br> O próximo texto já faz parte do jogo.',
+		'Olá. Aparentemente, você herdou essa poçilga caindo aos pedaços.<br><br>Benção ou maldição? Vamos descobrir.',
+		'Algumas pessoas ("pessoas" são essas bolas horríveis na parte de baixo, use a imaginação) estão visitando a rua do hotel.<br><br>Clique na Dex para saber mais sobre elas.',
+	],
+	'dexVisit': [
+		'Na Dex, você pode consultar todos os tipos de criaturas que visitam a rua do hotel. Cada grupo está atrás de coisas diferentes, no hotel e na vida!',
+		'Parece que já há um grupo misterioso rondando o hotel! Clique no seu ícone na Dex, vamos ver do que estão atrás!',
+		'Nota do Leon: no protótipo são apenas 4 classes para desbloquear, ok? Sem desespero.',
+	],
+	'dexVisit2': [
+		'Então esse ser reservadíssimo precisa de pelo menos 1 quarto disponível para se hospedar. A ousadia!',
+		'Aqui estão 1000... dinheiros? Moedas? Seu tio te deixou de herança? Seu vô? Cria aí o lore na sua cabeça.<br><br>Use para construir um andar com quartos, vamos ver a magia acontecer!',
+	],
+	'firstReception': [
+		'Quando seu hotel tem o que um grupo está atrás, seus personagens irão querer se hospedar.<br><br>Nesse momento todos seus segredos são revelados! Lembre-se de consultar a Dex para ver as informações atualizadas!',
+		'Você, como orgulhoso dono dessa espelunca, decide quem pode ou não se hospedar.<br><br>Os hóspedes ficam por alguns dias no seu hotel e te pagam um dinheirinho no final.',
+	],
+	'secondChar': [
+		'Alguém de um novo grupo parece ter se interessado pelo hotel!<br><br>Visite a Dex para entender o que ele procura para se hospedar. A partir daqui é com você.',
+		'Deus no comando ☝️',
+		'Nota: Um dia completo no hotel leva 1 hora da vida real. Então encha seu hotel e vá ler um livro, te vejo daqui a pouco.',
+	],
+	'lastChar': [
+		'Leon de novo aqui. É isso!',
+		'Obrigado pelo tempo e pelo carinho, estou animado montando esse joguinho!<br><br>Tem um monte de outras mecânicas que quero implementar nas próximas versões, além de todos os personagens.',
+		'Por favor POR FAVOR me dê feedbacks e ideias, principalmente sobre o que pareceu mais irritante ou entediante.',
+		'Não há mais nada para fazer agora, então pode desinstalar o jogo e voltar para a vida real.<br><br>Como recompensa final, vou te mostrar a linha que estou pensando em seguir para o visual.<br><br>Até mais!',
 	],
 	'noFloorAvailable': [
 		'Nenhum andar disponível.',
@@ -105,8 +133,9 @@ const dex = {
 	alien7: {},
 };
 
-let file = {
+const rawFile = {
 	version: 0.1,
+	mode: 'normal',
 	chars: {},
 	progress: {},
 	building: {},
@@ -115,6 +144,7 @@ let file = {
 	stage: [],
 	start: Date.now(),
 }
+let file = rawFile;
 
 const actions = {
 	showChar: () => {
@@ -149,15 +179,15 @@ const actions = {
 			el.innerHTML = '🔒';
 		}
 
-		document.getElementById('canvas').appendChild(el);
+		document.getElementById('chars').appendChild(el);
 
 		return el;
 	},
 	street: {
 		wandering (char) {
-			const randomY = helper.rand(-10, 50);
-			char.el.style.transform = `translateY(${getPosition('#street').y + randomY}px)`;
-			char.el.style.zIndex = 100 + randomY;
+			const randomY = helper.rand(0, 60);
+			char.el.style.transform = `translateY(${getPosition('#street').bottom - randomY}px)`;
+			char.el.style.zIndex = 100 - randomY;
 	
 			sideToggle = !sideToggle;
 			const translateArr = sideToggle ? [-36, getPosition('#street').right] : [getPosition('#street').right, -36];
@@ -172,6 +202,16 @@ const actions = {
 				},
 				update: function(anim) {
 					const progress = Math.round(anim.progress)
+					
+					if (progress == 10 && char.type == 'dinosaur' && !file.stage.includes('secondChar')) {
+						file.stage.push('secondChar');
+						controller.save();
+
+						actions.ux.mensagem('secondChar', () => {
+							file.stage.push('secondCharEnd');
+							controller.save();
+						});
+					}
 					
 					if (progress == 40 && !anim.control) {
 						anim.control = true;
@@ -189,6 +229,18 @@ const actions = {
 		},
 	},
 	visiting (char) {
+		if (!file.stage.includes('firstReception')) {
+			file.stage.push('firstReception');
+			controller.save();
+
+			actions.ux.mensagem('firstReception', () => {
+				file.stage.push('firstReceptionEnd');
+				controller.save();
+
+				actions.reception.openCheckin()
+			});
+		};
+
 		const order = Object.values(file.chars).filter(char => char.location === 'reception').length + 1;
 
 		anime({
@@ -197,47 +249,27 @@ const actions = {
 			keyframes: [
 				{
 					duration: 1000,
-					translateY: getPosition('#escada').y,
-					translateX: getPosition('#escada').x
+					translateY: getPosition('#escada').bottom + 10,
+					translateX: getPosition('#escada').left
 				},
 				{
 					duration: 500,
-					translateY: getPosition('.gerente').y
+					translateY: getPosition('.gerente').bottom
 				},
 				{
 					duration: 500 * (5 - order),
-					translateX: getPosition('.gerente').x + (order * 35),
+					translateX: getPosition('.gerente').left + (order * 35),
 				},
 			],
 			complete: () => {
 				actions.reception.openCheckin();
-				if (file.chars[char.id].receptionOrder != order) actions.adjustLine(char);
+				if (file.chars[char.id].receptionOrder != order) actions.reception.adjustLine(char);
 			},
 		});
 
 		ops.updateChar(char.id, {
 			location: 'reception',
 			receptionOrder: order
-		});
-	},
-	adjustLine: (char) => {
-		anime({
-			targets: char.el,
-			duration: 200,
-			easing: 'linear',
-			translateX: getPosition('.gerente').x + (file.chars[char.id].receptionOrder * 35),
-			complete: actions.reception.openCheckin,
-		})
-	},
-	advanceLine: () => {
-		Object.values(file.chars)
-			.filter(char => char.location === 'reception')
-			.forEach(char => {
-				ops.updateChar(char.id, {
-					receptionOrder: char.receptionOrder - 1
-				});
-
-				if (!char.animation || char.animation.completed) actions.adjustLine(char);
 		});
 	},
 	reception: {
@@ -249,6 +281,15 @@ const actions = {
 				actions.ux.mensagem('noFloorAvailable');
 				return false;
 			};
+
+			if (!file.stage.includes('lastChar') && first.type == 'lord') {
+				file.stage.push('lastChar');
+				controller.save();
+
+				actions.ux.mensagem('lastChar', () => {
+					document.querySelector('#foto').style.display = 'flex';
+				});
+			}
 
 			ops.updateChar(first.id, {
 				location: 'hotel',
@@ -267,17 +308,17 @@ const actions = {
 				keyframes: [
 					{
 						duration: 1400,
-						translateX: getPosition('#recepcao .porta').x,
+						translateX: getPosition('#recepcao .porta').left,
 					}, {
 						duration: 500,
 						opacity: 0,
 					}, {
 						duration: 500,
 						opacity: 1,
-						translateY: [getPosition(porta).y + 20, getPosition(porta).y + 20],
+						translateY: [getPosition(porta).bottom, getPosition(porta).bottom],
 					}, {
 						duration: 1000,
-						translateX: 120,
+						translateX: getPosition(floor.el).left + 5
 					}
 				],
 				complete: () => {
@@ -286,7 +327,7 @@ const actions = {
 			});
 	
 			actions.reception.closeCheckin();
-			actions.advanceLine();
+			actions.reception.advanceLine();
 		},
 		deny: () => {
 			const first = helper.firstInLine();
@@ -314,7 +355,7 @@ const actions = {
 			});
 			
 			actions.reception.closeCheckin();
-			if (Object.values(file.chars).some(char => char.location === 'reception')) actions.advanceLine();
+			if (Object.values(file.chars).some(char => char.location === 'reception')) actions.reception.advanceLine();
 		},
 		checkout: () => {
 			const charId = file.locations['checkout'][0];
@@ -326,15 +367,18 @@ const actions = {
 				keyframes: [
 					{
 						duration: 1000,
-						translateX: getPosition('#escada').x
+						translateX: getPosition('#escada').left
 					},
 					{
 						duration: 2000,
-						translateY: getPosition('#street').bottom
+						translateY: getPosition('#street').bottom,
+						scale: 1.5,
+						opacity: 0
 					},
 				],
 				complete: () => {
 					ops.deleteChar(charId);
+					char.el.remove();
 				}
 			});
 
@@ -348,6 +392,8 @@ const actions = {
 				actions.reception.closeCheckout();
 		},
 		openCheckin: () => {
+			if (!file.stage.includes('firstReceptionEnd')) return;
+
 			document.getElementById('checkin').classList.add('active');
 		},
 		closeCheckin: () => {
@@ -358,7 +404,27 @@ const actions = {
 		},
 		closeCheckout: () => {
 			document.getElementById('checkout_bt').classList.remove('active');
-		}
+		},
+		advanceLine: () => {
+			Object.values(file.chars)
+				.filter(char => char.location === 'reception')
+				.forEach(char => {
+					ops.updateChar(char.id, {
+						receptionOrder: char.receptionOrder - 1
+					});
+	
+					if (!char.animation || char.animation.completed) actions.reception.adjustLine(char);
+			});
+		},
+		adjustLine: (char) => {
+			anime({
+				targets: char.el,
+				duration: 200,
+				easing: 'linear',
+				translateX: getPosition('.gerente').left + (file.chars[char.id].receptionOrder * 35),
+				complete: actions.reception.openCheckin,
+			})
+		},
 	},
 	room: {
 		wandering: (el, porta) => {
@@ -369,7 +435,7 @@ const actions = {
 				easing: 'linear',
 				loop: true,
 				direction: 'alternate',
-				translateX: getPosition(porta).x - 50,
+				translateX: getPosition(porta).left - 35,
 			});
 		}
 	},
@@ -390,19 +456,18 @@ const actions = {
 							keyframes: [
 								{
 									duration: 1400,
-									translateX: getPosition(door).x,
+									translateX: getPosition(door).left,
 								}, {
 									duration: 500,
 									opacity: 0,
 								}, {
 									duration: 500,
 									opacity: 1,
-									translateY: [getPosition(reception).y + 20, getPosition(reception).y + 20],
+									translateY: [getPosition(reception).bottom, getPosition(reception).bottom],
 								}, {
 									duration: 500,
-									translateX: 282,
+									translateX: getPosition(reception).right + 15,
 								}
-								
 							],
 							complete: () => {
 								ops.updateChar(char.id, {
@@ -472,12 +537,23 @@ const actions = {
 					guests: 0,
 					el: floor
 				}
-				save();
+				controller.save();
 			}
 		}
 	},
 	ux: {
 		openDex: () => {
+			if (!file.stage.includes('dex')) {
+				actions.ux.mensagem('dexVisit', () => {
+					file.stage.push('dex');
+					controller.save();
+
+					actions.ux.openDex();
+				});
+
+				return;
+			};
+
 			const dexEl = document.getElementById('dex');
 
 			if (dexEl.style.display === 'block') {
@@ -529,8 +605,8 @@ const actions = {
 
 			if (file.progress?.[type]?.visit) {
 				let text = '';
-				text += '<b>Aparecer:</b><br>'+ solve.texts(dex[type].show);
-				text += '<b>Visitar:</b><br>'+ solve.texts(dex[type].visit);
+				text += '<b>Visitar:</b><br>'+ solve.texts(dex[type].show);
+				text += '<b>Check-In:</b><br>'+ solve.texts(dex[type].visit);
 				
 				details.querySelector('.name').innerHTML = dex[type].name;
 				details.querySelector('.char').classList = ['char'];
@@ -539,8 +615,8 @@ const actions = {
 				details.querySelector('.rules').innerHTML = text;
 			} else {
 				let text = '';
-				text += '<b>Aparecer:</b><br>'+ solve.texts(dex[type].show);
-				text += '<b>Visitar:</b><br>'+ solve.texts(dex[type].visit);
+				text += '<b>Visitar:</b><br>'+ solve.texts(dex[type].show);
+				text += '<b>Check-In:</b><br>'+ solve.texts(dex[type].visit);
 				
 				details.querySelector('.name').innerHTML = '???';
 				details.querySelector('.char').classList = ['char'];
@@ -550,6 +626,44 @@ const actions = {
 			}
 		},
 		backDex: () => {
+			if (!file.stage.includes('dex2')) {
+				file.stage.push('dex2');
+				controller.save();
+
+				document.querySelector('#dex .list').style.display = 'none';
+				document.querySelector('#dex #close_dex').style.display = 'none';
+				document.querySelector('#dex .details').style.display = 'none';
+				document.querySelector('#dex #back_dex').style.display = 'none';
+
+				actions.ux.mensagem('dexVisit2', () => {
+					ops.updateCoins(1000);
+
+					const bt = document.querySelector('#info_bar #coins');
+					anime({
+						targets: bt,
+						easing: 'linear',
+						keyframes: [
+							{
+								duration: 200,
+								scale: 1.5,
+								opacity: 1
+							},
+							{
+								duration: 200,
+								scale: 1
+							}
+						],
+					});
+	
+					document.querySelector('.fudido button').innerHTML = hotel.andares[1].preco;
+					document.querySelector('.fudido button').style.display = 'block';
+
+					actions.ux.backDex();
+				});
+
+				return;
+			}
+
 			document.querySelector('#dex .list').style.display = 'grid';
 			document.querySelector('#dex #close_dex').style.display = 'inline';
 
@@ -605,158 +719,201 @@ const actions = {
 	}
 }
 
-function save() {
-	localStorage.setItem('file', JSON.stringify(file));
-}
+const controller = {
+	save: () => {
+		localStorage.setItem('file', JSON.stringify(file));
+	},
+	load: () => {
+		if (localStorage.getItem('file')) file = JSON.parse(localStorage.getItem('file'));
 
-function reset() {
-	localStorage.removeItem('dinheiro');
-	localStorage.removeItem('hotel');
-	localStorage.removeItem('file');
-
-	location.reload();
-}
-
-window.addEventListener('load', () => {
-	load.loadFile();
-	load.building();
-	load.chars();
-	load.ux();
-	load.showCharInterval();
-});
-
-const load = {
-	loadFile: () => {
-		if (localStorage.getItem('file')) {
-			tempFile = JSON.parse(localStorage.getItem('file'));
-
-			if (tempFile.version === file.version) {
-				file = tempFile;
-			}
+		if (file.version != rawFile.version) {
+			controller.reset();
+			return;
 		}
+
+		if (file.mode == 'god') Object.assign(config, godConfig);
 		
 		if (!file.stage?.includes('intro')) {
-			load.intro();
-		}
-	},
-	intro: () => {
-		actions.ux.mensagem('introducao', () => {
-			ops.updateCoins(1000);
-
-			document.querySelector('.fudido button').innerHTML = hotel.andares[1].preco;
-			document.querySelector('.fudido button').style.display = 'block';
-
-			file.stage.push('intro');
-		});
-	},
-	chars: () => {
-		Object.values(file.chars).filter(char => char.location === 'street').forEach(char => {
-			ops.deleteChar(char.id);
-		});
-	
-		Object.entries(file.chars).filter(([id, char]) => char.location === 'reception').forEach(([id, char]) => {
-			el = actions.renderChar(char.type);
-			file.chars[id].el = el;
-			el.style.transform = `translateY(${getPosition('.gerente').y}px) translateX(${getPosition('.gerente').x + (char.receptionOrder * 35)}px)`;
-		});
-
-		Object.entries(file.chars).filter(([id, char]) => char.location === 'hotel').forEach(([id, char]) => {
-			el = actions.renderChar(char.type);
-			file.chars[id].el = el;
-
-			const floor = file.building[char.roomFloor].el;
-			el.style.transform = `translateY(${(getPosition(floor).bottom) - 30}px) translateX(${getPosition(floor).x + 30}px)`;
-			
-			actions.room.wandering(el, floor.querySelector('.porta'));
-		});
-
-		const porta = document.getElementById('recepcao').querySelector('.porta');
-		
-		Object.entries(file.chars).filter(([id, char]) => char.location === 'checkout').forEach(([id, char]) => {
-			el = actions.renderChar(char.type);
-			file.chars[id].el = el;
-
-			el.style.transform = `translateY(${(getPosition(porta).bottom - 30)}px) translateX(282px)`;
-
-			actions.reception.openCheckout();
-		});
-
-		Object.entries(file.chars).filter(([id, char]) => char.location === 'temporary').forEach(([id, char]) => {
-			ops.deleteChar(id);
-		});
-	},
-	building: () => {
-		const hotelEl = document.getElementById('hotel');
-
-		Object.entries(file.building).forEach(([key, floor]) => {
-			const template = document.querySelector('#andar').content;
-			const floorEl = template.firstElementChild.cloneNode(true);
-			floorEl.querySelector('p').innerHTML = hotel.andares[key].texto;
-			hotelEl.appendChild(floorEl);
-
-			file.building[key].el = floorEl;
-		});
-
-		const template = document.importNode(document.querySelector('#andar-fudido').content, true);
-		const button = template.querySelector('button');
-		button.innerHTML = andar.preco;
-		button.addEventListener('click', actions.building.purchaseFloor);
-		
-		hotelEl.appendChild(template);
-		
-		const fudidoEl = document.querySelector('.fudido button');
-		
-		const highestFloor = Object.values(file.building).reduce((highest, floor) => Math.max(highest, floor.id), 0);
-
-		if (file.stage.includes('intro')) {
-			document.getElementById('dinheiro').innerHTML = '🪙 ' + file.coins;
-			
-			if (hotel.andares[highestFloor + 1]) {
-				fudidoEl.style.display = 'block';
-				fudidoEl.innerHTML = hotel.andares[highestFloor + 1].preco;
-			} else {
-				fudidoEl.innerHTML = 'Sem andares';
-				fudidoEl.style.display = 'none';
-			}
-		};
-	},
-	ux: () => {
-		if (Object.values(file.chars).some(char => char.location === 'reception')) actions.reception.openCheckin();
-
-		document.querySelector('#reset').addEventListener('click', reset);
-		document.querySelector('#dex_bt').addEventListener('click', actions.ux.openDex);
-		document.querySelector('#checkin_bt').addEventListener('click', actions.reception.checkIn);
-		document.querySelector('#denied_bt').addEventListener('click', actions.reception.deny);
-		document.querySelector('#checkout_bt').addEventListener('click', actions.reception.checkout);
-		document.querySelector('#dex #close_dex').addEventListener('click', actions.ux.closeDex);
-		document.querySelector('#dex #back_dex').addEventListener('click', actions.ux.backDex);
-
-		load.updateTime();
-		setInterval(load.updateTime, 1000);
-	},
-	updateTime: () => {
-		const now = Date.now();
-		const elapsed = now - file.start;
-
-		const elapsedToday = elapsed % config.dayMsConversion;
-		const hours = Math.floor(elapsedToday / (config.dayMsConversion / 24));
-		const minutes = Math.floor((elapsedToday % (config.dayMsConversion / 24)) / (config.dayMsConversion / 1440));
-
-		document.getElementById('clock').innerHTML = hours.toString().padStart(2, '0') +':'+ minutes.toString().padStart(2, '0');
-
-		if (hours >= 6 && hours < 18) {
-			document.querySelector('#canvas').style.backgroundColor = 'aqua';
+			controller.init.intro();
 		} else {
-			document.querySelector('#canvas').style.backgroundColor = 'midnightblue';
+			document.querySelector('#info_bar #dex_bt').style.opacity = 1;
+			document.querySelector('#dex_bt').addEventListener('click', actions.ux.openDex);
 		}
 
-		actions.char.checkCheckout();
+		controller.init.building();
+		controller.init.chars();
+		controller.init.ux();
+		controller.init.showCharInterval();
 	},
-	showCharInterval: () => {
-		actions.showChar();
-		setTimeout(load.showCharInterval, helper.rand(2000, 8000));
+	reset: () => {
+		localStorage.removeItem('file');
+		location.reload();
+		throw new Error('Reset');
+	},
+	godMode: () => {
+		file = rawFile;
+		file.mode = 'god';
+		controller.save();
+		location.reload();
+		throw new Error('Reset');
+	},
+	init: {
+		intro: () => {
+			actions.ux.mensagem('intro', () => {
+				const bt = document.querySelector('#info_bar #dex_bt');
+
+				anime({
+					targets: bt,
+					easing: 'linear',
+					keyframes: [
+						{
+							duration: 200,
+							scale: 1.5,
+							opacity: 1
+						},
+						{
+							duration: 200,
+							scale: 1
+						}
+					],
+					complete: () => {
+						document.querySelector('#dex_bt').addEventListener('click', actions.ux.openDex);
+
+						file.stage.push('intro');
+						controller.save();
+					},
+				});
+			});
+		},
+		chars: () => {
+			Object.values(file.chars).filter(char => char.location === 'street').forEach(char => {
+				ops.deleteChar(char.id);
+			});
+		
+			Object.entries(file.chars).filter(([id, char]) => char.location === 'reception').forEach(([id, char]) => {
+				el = actions.renderChar(char.type);
+				file.chars[id].el = el;
+				el.style.transform = `translateY(${getPosition('.gerente').bottom}px) translateX(${getPosition('.gerente').left + (char.receptionOrder * 35)}px)`;
+			});
+	
+			Object.entries(file.chars).filter(([id, char]) => char.location === 'hotel').forEach(([id, char]) => {
+				el = actions.renderChar(char.type);
+				file.chars[id].el = el;
+	
+				const floor = file.building[char.roomFloor].el;
+				el.style.transform = `translateY(${getPosition(floor).bottom}px) translateX(${getPosition(floor).left + 5}px)`;
+				
+				actions.room.wandering(el, floor.querySelector('.porta'));
+			});
+	
+			const porta = document.getElementById('recepcao').querySelector('.porta');
+			
+			Object.entries(file.chars).filter(([id, char]) => char.location === 'checkout').forEach(([id, char]) => {
+				el = actions.renderChar(char.type);
+				file.chars[id].el = el;
+	
+				el.style.transform = `translateY(${getPosition(porta).bottom}px) translateX(${getPosition(porta).right + 15}px)`;
+	
+				actions.reception.openCheckout();
+			});
+	
+			Object.entries(file.chars).filter(([id, char]) => char.location === 'temporary').forEach(([id, char]) => {
+				ops.deleteChar(id);
+			});
+		},
+		building: () => {
+			const hotelEl = document.getElementById('hotel');
+	
+			Object.entries(file.building).forEach(([key, floor]) => {
+				const template = document.querySelector('#andar').content;
+				const floorEl = template.firstElementChild.cloneNode(true);
+				floorEl.querySelector('p').innerHTML = hotel.andares[key].texto;
+				hotelEl.appendChild(floorEl);
+	
+				file.building[key].el = floorEl;
+			});
+	
+			const template = document.importNode(document.querySelector('#andar-fudido').content, true);
+			const button = template.querySelector('button');
+			button.innerHTML = andar.preco;
+			button.addEventListener('click', actions.building.purchaseFloor);
+			
+			hotelEl.appendChild(template);
+			
+			const fudidoEl = document.querySelector('.fudido button');
+			
+			const highestFloor = Object.values(file.building).reduce((highest, floor) => Math.max(highest, floor.id), 0);
+	
+			if (file.stage.includes('intro')) {
+				document.getElementById('coins').innerHTML = '🪙 ' + file.coins;
+				
+				if (hotel.andares[highestFloor + 1]) {
+					fudidoEl.style.display = 'block';
+					fudidoEl.innerHTML = hotel.andares[highestFloor + 1].preco;
+				} else {
+					fudidoEl.innerHTML = 'Sem andares';
+					fudidoEl.style.display = 'none';
+				}
+			};
+		},
+		ux: () => {
+			if (Object.values(file.chars).some(char => char.location === 'reception')) actions.reception.openCheckin();
+
+			if (file.stage.includes('dex2')) {
+				document.querySelector('#info_bar #coins').style.opacity = 1;
+				ops.updateCoins(0);
+			}
+
+			if (file.stage.includes('firstReception') && !file.stage.includes('firstReceptionEnd')) {
+				actions.ux.mensagem('firstReception', () => {
+					file.stage.push('firstReceptionEnd');
+					controller.save();
+	
+					actions.reception.openCheckin()
+				});
+			};
+	
+			document.querySelector('#reset').addEventListener('click', controller.reset);
+			document.querySelector('#godmode').addEventListener('click', controller.godMode);
+			document.querySelector('#checkin_bt').addEventListener('click', actions.reception.checkIn);
+			document.querySelector('#denied_bt').addEventListener('click', actions.reception.deny);
+			document.querySelector('#checkout_bt').addEventListener('click', actions.reception.checkout);
+			document.querySelector('#dex #close_dex').addEventListener('click', actions.ux.closeDex);
+			document.querySelector('#dex #back_dex').addEventListener('click', actions.ux.backDex);
+
+			document.querySelector('#foto').addEventListener('click', () => {
+				document.querySelector('#foto').style.display = 'none';
+			});
+	
+			controller.init.updateTime();
+			setInterval(controller.init.updateTime, 1000);
+		},
+		updateTime: () => {
+			const now = Date.now();
+			const elapsed = now - file.start;
+	
+			const elapsedToday = elapsed % config.dayMsConversion;
+			const hours = Math.floor(elapsedToday / (config.dayMsConversion / 24));
+			const minutes = Math.floor((elapsedToday % (config.dayMsConversion / 24)) / (config.dayMsConversion / 1440));
+	
+			document.getElementById('clock').innerHTML = hours.toString().padStart(2, '0') +':'+ minutes.toString().padStart(2, '0');
+	
+			if (hours >= 6 && hours < 18) {
+				document.querySelector('#sky').style.backgroundColor = 'aqua';
+			} else {
+				document.querySelector('#sky').style.backgroundColor = 'midnightblue';
+			}
+	
+			actions.char.checkCheckout();
+		},
+		showCharInterval: () => {
+			actions.showChar();
+			setTimeout(controller.init.showCharInterval, helper.rand(2000, 8000));
+		}
 	}
 }
+
+window.addEventListener('load', controller.load);
 
 const helper = {
 	rand: (min, max) => {
@@ -820,7 +977,7 @@ const checkers = {
 		if (ok.every(value => value)) {
 			if (!file.progress[type]?.show) {
 				file.progress[type] = {show: true};
-				save();
+				controller.save();
 			}
 			
 			return true;
@@ -839,7 +996,7 @@ const checkers = {
 		if (ok.every(value => value)) {
 			if (!file.progress[type].visit) {
 				file.progress[type].visit = true;
-				save();
+				controller.save();
 
 				Object.values(file.chars).filter(char => char.type === type).forEach(char => {
 					char.el.classList.add(type);
@@ -856,12 +1013,15 @@ const checkers = {
 
 function getPosition(selector) {
 	const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+
 	const rect = el.getBoundingClientRect();
+	const stage = document.querySelector('#stage').getBoundingClientRect();
+
 	return {
-		x: rect.left + window.scrollX,
-		y: rect.top + window.scrollY,
-		bottom: rect.bottom + window.scrollY,
-		right: rect.right + window.scrollX
+		top: rect.top - stage.bottom,
+		bottom: rect.bottom - stage.bottom,
+		left: rect.left,
+		right: rect.right,
 	};
 }
 
@@ -884,19 +1044,19 @@ const ops = {
 		Object.assign(file.chars[id], upd);
 		del.forEach(key => delete file.chars[id][key]);
 
-		save();
+		controller.save();
 	},
 	deleteChar: (id) => {
 		ops.updateLocation(file.chars[id].location, 'del', id);
 		
 		delete file.chars[id];
-		save();
+		controller.save();
 	},
 	updateBuilding: (id, upd = {}, del = []) => {
 		Object.assign(file.building[id], upd);
 		del.forEach(key => delete file.building[id][key]);
 	
-		save();
+		controller.save();
 	},
 	updateLocation: (location, action, id) => {
 		if (!file?.locations[location]) file.locations[location] = [];
@@ -907,12 +1067,12 @@ const ops = {
 			file.locations[location] = file.locations[location].filter(charId => charId != id);
 		}
 		
-		save();
+		controller.save();
 	},
 	updateCoins: (coins) => {
 		file.coins += coins;
-		save();
+		controller.save();
 
-		document.getElementById('dinheiro').innerHTML = '🪙 ' + file.coins;
+		document.getElementById('coins').innerHTML = '🪙 ' + file.coins;
 	}
 }

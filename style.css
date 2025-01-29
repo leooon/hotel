@@ -18,11 +18,42 @@ div {
 	box-sizing: border-box;
 }
 
+#foto {
+	position: fixed;
+	display: flex;
+	justify-content: center;
+	align-items: flex-start;
+	width: 100vw;
+	height: 100vh;
+	border: 2px solid black;
+	overflow-y: scroll;
+	z-index: 99999;
+	display: none;
+
+	img {
+		width: 100%;
+		height: auto;
+		max-width: 100%;
+	}
+}
+
+#canvas {
+	background-color: aquamarine;
+	display: flex;
+	position: relative;
+	height: 100vh;
+	overflow: hidden;
+	flex-direction: column;
+	overflow-x: hidden;
+	overflow-y: scroll;
+	overscroll-behavior: none;
+	scrollbar-width: none;
+}
+
 #quadro {
 	position: fixed;
-	top: 0;
-	left: 0;
-	margin: 90px 30px 0;
+	width: calc(100vw - 60px);
+	margin: calc(90px + env(safe-area-inset-top)) 30px 0;
 	border: 2px solid black;
 	padding: 20px;
 	background-color: white;
@@ -32,17 +63,14 @@ div {
 }
 
 #dex {
-	box-sizing: border-box;
 	position: fixed;
-	top: 0;
-	left: 0;
 	width: calc(100vw - 60px);
-	margin: 90px 30px 0;
+	margin: calc(90px + env(safe-area-inset-top)) 30px 0;
 	border: 2px solid black;
 	padding: 20px;
 	background-color: white;
 	color: black;
-	z-index: 1000;
+	z-index: 2;
 	display: none;
 
 	.list {
@@ -55,6 +83,8 @@ div {
 			border: 1px solid gray;
 			border-radius: 8px;
 			padding: 14px;
+			display: flex;
+			justify-content: center;
 		}
 
 		.char {
@@ -96,11 +126,11 @@ div {
 	}
 }
 
-#menu {
-	position: absolute;
-	width: 100vw;
+#info_bar {
+	position: fixed;
 	top: 0;
 	left: 0;
+	width: 100vw;
 	display: flex;
 	justify-content: space-between;
 	gap: 10px;
@@ -112,23 +142,31 @@ div {
 	div {
 		border-radius: 8px;
 		padding: 10px;
-		
+		display: flex;
+		align-items: center;
 	}
 	
-	#dinheiro {
+	#coins {
 		border: 2px solid goldenrod;
 		background-color: gold;
 		width: 100px;
+		opacity: 0;
 	}
 	
 	#dex_bt {
 		border: 2px solid blue;
 		background-color: lightblue;
+		opacity: 0;
 	}
 
 	#clock {
 		border: 2px solid green;
 		background-color: lightgreen;
+	}
+	
+	#godmode {
+		border: 2px solid grey;
+		background-color: white;
 	}
 	
 	#reset {
@@ -138,161 +176,181 @@ div {
 	}
 }
 
-#canvas {
-	height: 100dvh;
-	width: 100vw;
-	position: relative;
-	overflow: hidden;
+#stage {
+	position: absolute;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	transition: background-color 1s ease-in-out;
-}
-
-#ceu {
-	flex-grow: 1;
-}
-
-#hotel {
-	display: flex;
-	flex-direction: column-reverse;
-	align-items: center;
-	position: relative;
-}
-
-#street {
-	background: grey;
 	width: 100%;
-	height: 100px;
-	border-top: 3px solid black;
-}
-
-.porta {
-	position: absolute;
-	bottom: 0;
-	right: 20px;
-	height: 50px;
-	width: 30px;
-	background-color: darkslategrey;
-	border-right: 3px solid black;
-}
-
-#recepcao {
-	background: lightgray;
-	width: 280px;
-	height: 120px;
-	border: 3px solid grey;
-	border-bottom: none;
-	position: relative;
-
-	.gerente {
-		position: absolute;
-		bottom: 0;
-		left: 15px;
-		height: 30px;
-		width: 30px;
-		border-radius: 30px;
-		border: 3px solid white;
-		background-color: rgb(62, 173, 173);
-	}
-
-	p {
-		text-align: center;
-		font-size: 24px;
-		color: grey;
-	}
-
-	.porta {
-		right: 60px;
-	}
-
-	#checkin {
-		position: absolute;
-		top: 10px;
-		left: -20px;
-		width: 320px;
-		display: none;
-
-		&.active {
-			display: block;
-		}
-	
-		button {
-			margin: 20px auto;
-			padding: 10px;
-		}
-
-		#checkin_bt {
-			background-color: lightgreen;
-			border: 2px solid green;
-		}
-
-		#denied_bt {
-			background-color: lightcoral;
-			border: 2px solid red;
-		}
-	}
-
-	#checkout_bt {
-		position: absolute;
-		top: 10px;
-		right: -10px;
-		margin: 20px auto;
-		padding: 10px;
-		display: none;
-		background-color: lightblue;
-		border: 2px solid blue;
-		z-index: 1;
-
-		&.active {
-			display: block;
-		}
-	}
-}
-
-#escada {
-	width: 20px;
-	height: 20px;
-	background-color: brown;
-	position: absolute;
-	bottom: -23px;
-	left: 150px;
+	min-height: 100%;
 	z-index: 1;
-}
 
-.andar {
-	background: lightgray;
-	width: 200px;
-	height: 100px;
-	border: 3px solid grey;
-	border-bottom: none;
-	position: relative;
-	text-align: center;
-
-	p {
-		margin-top: 10px;
-		text-align: center;
-		font-size: 18px;
-		color: grey;
+	#sky {
+		position: fixed;
+		width: 100%;
+		height: 100%;
+		transition: background-color 1s ease-in-out;
+		z-index: 1;
 	}
 
-	&.fudido {
-		background: none;
-		border-top: none;
+	#street {
+		position: relative;
+		background: grey;
+		height: 100px;
+		border-top: 3px solid black;
+		z-index: 2;
+	}
 
-		.sujeira {
+	#hotel {
+		position: relative;
+		min-height: 100px;
+		display: flex;
+		flex-direction: column-reverse;
+		align-items: center;
+		z-index: 3;
+
+		.porta {
 			position: absolute;
-			height: 20px;
-			width: 20px;
-			background-color: gray;
-			bottom: 0px;
-			transform-origin: bottom;
+			bottom: 0;
+			right: 20px;
+			height: 50px;
+			width: 30px;
+			background-color: darkslategrey;
+			border-right: 3px solid black;
 		}
 
-		button {
-			margin: 20px auto;
-			display: none;
+		#recepcao {
+			background: lightgray;
+			width: 280px;
+			height: 120px;
+			border: 3px solid grey;
+			border-bottom: none;
+			position: relative;
+
+			.gerente {
+				position: absolute;
+				bottom: 0;
+				left: 15px;
+				height: 30px;
+				width: 30px;
+				border-radius: 30px;
+				border: 3px solid white;
+				background-color: rgb(62, 173, 173);
+			}
+		
+			p {
+				text-align: center;
+				font-size: 24px;
+				color: grey;
+			}
+		
+			.porta {
+				right: 60px;
+			}
+
+			#escada {
+				position: absolute;
+				bottom: -20px;
+				left: 150px;
+				width: 20px;
+				height: 20px;
+				background-color: brown;
+			}
+
+			#checkin {
+				position: absolute;
+				top: 10px;
+				left: -20px;
+				width: 320px;
+				display: none;
+		
+				&.active {
+					display: block;
+				}
+			
+				button {
+					margin: 20px auto;
+					padding: 10px;
+				}
+		
+				#checkin_bt {
+					background-color: lightgreen;
+					border: 2px solid green;
+				}
+		
+				#denied_bt {
+					background-color: lightcoral;
+					border: 2px solid red;
+				}
+			}
+
+			#checkout_bt {
+				position: absolute;
+				top: 10px;
+				right: -10px;
+				margin: 20px auto;
+				padding: 10px;
+				display: none;
+				background-color: lightblue;
+				border: 2px solid blue;
+				z-index: 1;
+		
+				&.active {
+					display: block;
+				}
+			}
 		}
+
+		.andar {
+			background: lightgray;
+			width: 200px;
+			height: 100px;
+			border: 3px solid grey;
+			border-bottom: none;
+			position: relative;
+			text-align: center;
+		
+			p {
+				margin-top: 10px;
+				text-align: center;
+				font-size: 18px;
+				color: grey;
+			}
+		
+			&.fudido {
+				background: none;
+				border-top: none;
+		
+				.sujeira {
+					position: absolute;
+					height: 20px;
+					width: 20px;
+					background-color: gray;
+					bottom: 0px;
+					transform-origin: bottom;
+				}
+		
+				button {
+					margin: 20px auto;
+					display: none;
+				}
+			}
+		}
+	}
+
+	#stars {
+		flex-grow: 1;
+		min-height: 100px;
+		z-index: 4;
+
+		/* height: 3000px; */
+	}
+
+	#chars {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+		z-index: 5;
 	}
 }
 
@@ -300,9 +358,10 @@ div {
 	position: absolute;
 	height: 30px;
 	width: 30px;
+	pointer-events: auto;
 	border-radius: 30px;
 	z-index: 1;
-	top: 0;
+	bottom: 0;
 	left: 0;
 	display: flex;
 	justify-content: center;
