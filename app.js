@@ -144,31 +144,9 @@ const rawFile = {
 	stage: [],
 	start: Date.now(),
 }
-let file = rawFile;
+let file = structuredClone(rawFile);
 
 const actions = {
-	showChar: () => {
-		if (howMany({location: 'street'})>= 4) return;
-
-		const allowedTypes = [];
-		for (const type in dex) {
-			if (checkers.canShow(type)) allowedTypes.push(type);
-		}
-
-		const type = allowedTypes[helper.rand(0, allowedTypes.length - 1)];
-	
-		const id = Object.keys(file.chars).length ? Math.max(...Object.values(file.chars).map(char => char.id)) + 1 : 1;
-		file.chars[id] = {};
-
-		ops.updateChar(id, {
-			id: id,
-			type: type,
-			location: 'street',
-			el: actions.renderChar(type)
-		});
-	
-		actions.street.wandering(file.chars[id]);
-	},
 	renderChar(type) {
 		const el = document.createElement('div');
 
@@ -184,6 +162,29 @@ const actions = {
 		return el;
 	},
 	street: {
+		showChar: () => {
+			if (howMany({location: 'street'})>= 4) return;
+	
+			const allowedTypes = [];
+			for (const type in dex) {
+				if (checkers.canShow(type)) allowedTypes.push(type);
+			}
+	
+			const type = allowedTypes[helper.rand(0, allowedTypes.length - 1)];
+		
+			const id = Object.keys(file.chars).length ? Math.max(...Object.values(file.chars).map(char => char.id)) + 1 : 1;
+			file.chars[id] = {};
+	
+			ops.updateChar(id, {
+				id: id,
+				type: type,
+				location: 'street',
+				activity: 'streetWandering',
+				el: actions.renderChar(type)
+			});
+		
+			actions.street.wandering(file.chars[id]);
+		},
 		wandering (char) {
 			const randomY = helper.rand(0, 60);
 			char.el.style.transform = `translateY(${getPosition('#street').bottom - randomY}px)`;
@@ -221,62 +222,67 @@ const actions = {
 						
 							anim.pause();
 	
-							actions.visiting(char);
+							actions.street.visiting(char);
 						}
 					}
 				}
 			});
 		},
-	},
-	visiting (char) {
-		if (!file.stage.includes('firstReception')) {
-			file.stage.push('firstReception');
-			controller.save();
-
-			actions.ux.mensagem('firstReception', () => {
-				file.stage.push('firstReceptionEnd');
+		visiting (char) {
+			if (!file.stage.includes('firstReception')) {
+				file.stage.push('firstReception');
 				controller.save();
-
-				actions.reception.openCheckin()
+	
+				actions.ux.mensagem('firstReception', () => {
+					file.stage.push('firstReceptionEnd');
+					controller.save();
+	
+					actions.reception.openCheckin()
+				});
+			};
+	
+			const order = Object.values(file.chars).filter(char => char.location === 'reception').length + 1;
+	
+			anime({
+				targets: char.el,
+				easing: 'linear',
+				keyframes: [
+					{
+						duration: 1000,
+						translateY: getPosition('#escada').bottom + 10,
+						translateX: getPosition('#escada').left
+					},
+					{
+						duration: 500,
+						translateY: getPosition('.gerente').bottom
+					},
+					{
+						duration: 500 * (5 - order),
+						translateX: getPosition('.gerente').left + (order * 35),
+					},
+				],
+				complete: () => {
+					ops.updateChar(char.id, {
+						activity: 'waitingForCheckin',
+					});
+					
+					actions.reception.openCheckin();
+					if (file.chars[char.id].receptionOrder != order) actions.reception.adjustLine(char);
+				},
 			});
-		};
-
-		const order = Object.values(file.chars).filter(char => char.location === 'reception').length + 1;
-
-		anime({
-			targets: char.el,
-			easing: 'linear',
-			keyframes: [
-				{
-					duration: 1000,
-					translateY: getPosition('#escada').bottom + 10,
-					translateX: getPosition('#escada').left
-				},
-				{
-					duration: 500,
-					translateY: getPosition('.gerente').bottom
-				},
-				{
-					duration: 500 * (5 - order),
-					translateX: getPosition('.gerente').left + (order * 35),
-				},
-			],
-			complete: () => {
-				actions.reception.openCheckin();
-				if (file.chars[char.id].receptionOrder != order) actions.reception.adjustLine(char);
-			},
-		});
-
-		ops.updateChar(char.id, {
-			location: 'reception',
-			receptionOrder: order
-		});
+	
+			ops.updateChar(char.id, {
+				location: 'reception',
+				activity: 'goingToReception',
+				receptionOrder: order
+			});
+		},
 	},
 	reception: {
 		checkIn: () => {
 			const first = helper.firstInLine();
-			const floor = actions.building.nextOpenFloor();
 
+			const floor = actions.building.nextOpenFloor();
 			if (!floor) {
 				actions.ux.mensagem('noFloorAvailable');
 				return false;
@@ -294,7 +300,8 @@ const actions = {
 			ops.updateChar(first.id, {
 				location: 'hotel',
 				roomFloor: floor.id,
-				checkinTime: Date.now()
+				checkinTime: Date.now(),
+				activity: 'goingToRoomAfterCheckin',
 			}, ['receptionOrder']);
 			ops.updateBuilding(floor.id, {
 				guests: file.building[floor.id].guests + 1
@@ -322,7 +329,7 @@ const actions = {
 					}
 				],
 				complete: () => {
-					actions.room.wandering(first.el, porta);
+					actions.room.wandering(first, porta);
 				}
 			});
 	
@@ -413,23 +420,37 @@ const actions = {
 						receptionOrder: char.receptionOrder - 1
 					});
 	
-					if (!char.animation || char.animation.completed) actions.reception.adjustLine(char);
+					if (char.activity == 'waitingForCheckin') actions.reception.adjustLine(char);
 			});
 		},
 		adjustLine: (char) => {
+			ops.updateChar(char.id, {
+				activity: 'adjustingReceptionQueue',
+			});
+
 			anime({
 				targets: char.el,
 				duration: 200,
 				easing: 'linear',
 				translateX: getPosition('.gerente').left + (file.chars[char.id].receptionOrder * 35),
-				complete: actions.reception.openCheckin,
+				complete: () => {
+					actions.reception.openCheckin();
+
+					ops.updateChar(char.id, {
+						activity: 'waitingForCheckin',
+					});
+				} 
 			})
 		},
 	},
 	room: {
-		wandering: (el, porta) => {
+		wandering: (char, porta) => {
+			ops.updateChar(char.id, {
+				activity: 'roomWandering',
+			})
+
 			anime({
-				targets: el,
+				targets: char.el,
 				duration: 4000,
 				delay: helper.rand(200, 2000),
 				easing: 'linear',
@@ -437,9 +458,7 @@ const actions = {
 				direction: 'alternate',
 				translateX: getPosition(porta).left - 35,
 			});
-		}
-	},
-	char: {
+		},
 		checkCheckout: () => {
 			Object.values(file.chars)
 				.filter(char => char.location === 'hotel')
@@ -750,12 +769,12 @@ const controller = {
 		location.reload();
 		throw new Error('Reset');
 	},
-	godMode: () => {
-		file = rawFile;
+	godMode: async () => {
+		file = structuredClone(rawFile);
 		file.mode = 'god';
+		file.start = Date.now(),
 		controller.save();
 		location.reload();
-		throw new Error('Reset');
 	},
 	init: {
 		intro: () => {
@@ -803,7 +822,7 @@ const controller = {
 				const floor = file.building[char.roomFloor].el;
 				el.style.transform = `translateY(${getPosition(floor).bottom}px) translateX(${getPosition(floor).left + 5}px)`;
 				
-				actions.room.wandering(el, floor.querySelector('.porta'));
+				actions.room.wandering(file.chars[id], floor.querySelector('.porta'));
 			});
 	
 			const porta = document.getElementById('recepcao').querySelector('.porta');
@@ -904,10 +923,10 @@ const controller = {
 				document.querySelector('#sky').style.backgroundColor = 'midnightblue';
 			}
 	
-			actions.char.checkCheckout();
+			actions.room.checkCheckout();
 		},
 		showCharInterval: () => {
-			actions.showChar();
+			actions.street.showChar();
 			setTimeout(controller.init.showCharInterval, helper.rand(2000, 8000));
 		}
 	}
@@ -921,13 +940,13 @@ const helper = {
 	},
 	firstInLine: () => {
 		const first = Object.values(file.chars)
-			.filter(char => char.location === 'reception')
+			.filter(char => char.activity === 'waitingForCheckin')
 			.reduce((highest, char) => {
 				return !highest || char.receptionOrder < highest.receptionOrder ? char : highest;
 			});
 
 		return first;
-	},	
+	},
 }
 
 let sideToggle = false;
