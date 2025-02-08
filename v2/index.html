@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-	<link rel="stylesheet" href="style.css?v=1" type="text/css">
+	<link rel="stylesheet" href="style.css?v=2" type="text/css">
 	<link rel="manifest" href="manifest.json">
 	<title>Hotelzinho</title>
 
@@ -23,11 +23,18 @@
 		<div class="list"></div>
 		<div class="details">
 			<div class="name"></div>
-			<div class="char"></div>
+			<div class="char">
+				<div class="sprite gambiarra"></div>
+			</div>
 			<div class="rules"></div>
 		</div>
 		<button id="close_dex">fechar</button>
 		<button id="back_dex">voltar</button>
+	</div>
+	<div id="room_info">
+		<div class="name"></div>
+		<div class="decor"></div>
+		<button class="close">fechar</button>
 	</div>
 	<div id="catalog">
 		<div class="list"></div>
@@ -45,7 +52,10 @@
 		<div id="hotel_bt">🛎️</div>
 	</div>
 	<div id="canvas">
-		<div id="sky"></div>
+		<div id="sky">
+			<div id="night"></div>
+			<div id="day"></div>
+		</div>
 		<div id="world">
 			<div id="city">
 				<div id="stars2"></div>
@@ -59,7 +69,6 @@
 				<div id="street2"></div>
 			</div>
 			<div id="stage">
-				
 				<div id="stars"></div>
 				<div id="hotel">
 					<div id="recepcao">

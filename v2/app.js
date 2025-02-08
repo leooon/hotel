@@ -137,22 +137,46 @@ const decor = {
 	cyan: {
 		name: 'Cyan',
 		price: 400,
+		hex: '#00FFFF',
+		text: 'black',
 	},
 	magenta: {
 		name: 'Magenta',
 		price: 400,
+		hex: '#FF00FF',
+		text: 'white',
 	},
 	yellow: {
 		name: 'Amarelo',
 		price: 700,
+		hex: '#FFFF00',
+		text: 'black',
 	},
 	black: {
 		name: 'Preto',
 		price: 700,
+		hex: '#000000',
+		text: 'white',
 	},
 };
 
-const rawFile = {
+function deepCopy(obj) {
+	if (obj === null || typeof obj !== 'object')
+		return obj;
+
+	if (Array.isArray(obj))
+		return obj.map(deepCopy);
+
+	const clonedObj = {};
+	for (const key in obj) {
+		if (obj.hasOwnProperty(key))
+			clonedObj[key] = deepCopy(obj[key]);
+	}
+
+	return clonedObj;
+}
+
+const file = {
 	version: 0.2,
 	mode: 'normal',
 	chars: {},
@@ -163,25 +187,29 @@ const rawFile = {
 	coins: 0,
 	stage: ['noTutorial'],
 	start: Date.now(),
+	live: {
+		nextFloor: null,
+	},
+	toJSON() {
+		const {live, chars,...rest} = this;
+
+		const filteredChars = Object.fromEntries(
+			Object.entries(chars)
+			.filter(([id, char]) => {
+				if (char.location == 'street') return false;
+				if (['beingKicked', 'leavingHotel'].includes(char.activity)) return false;
+				return true;
+			})
+		);
+
+		return {chars: filteredChars, ...rest};
+	}
 }
-let file = structuredClone(rawFile);
+
+const rawFile = deepCopy(file);
 
 const actions = {
-	renderChar(type) {
-		const el = document.createElement('div');
-
-		if (file.progress?.[type]?.visit) {
-			el.classList.add('char', type);
-		} else {
-			el.classList.add('char', 'locked');
-			el.innerHTML = '🔒';
-		}
-
-		document.getElementById('chars').appendChild(el);
-
-		return el;
-	},
-	street: {
+	events: {
 		showChar: () => {
 			if (howMany({location: 'street'}) >= 9) return;
 	
@@ -194,132 +222,37 @@ const actions = {
 		
 			const id = Object.keys(file.chars).length ? Math.max(...Object.values(file.chars).map(char => char.id)) + 1 : 1;
 			file.chars[id] = {};
-	
-			ops.updateChar(id, {
-				id: id,
-				type: type,
-				location: 'street',
-				activity: 'streetWandering',
-				el: actions.renderChar(type)
-			});
-		
-			actions.street.wandering(file.chars[id]);
-		},
-		wandering (char) {
-			const randomY = helper.rand(0, 60);
-			char.el.style.transform = `translateY(${getPosition('#street').bottom - randomY}px)`;
-			char.el.style.zIndex = 100 - randomY;
-
+			
+			const char = new Char({id: id, type: type, location: 'street'});
+			file.chars[id] = char;
+			controller.save();
+			
+			char.render();
+			
+			char.streetWandering(sideToggle);
 			sideToggle = !sideToggle;
-
-			const right = (window.innerWidth * 2) + 30;
-			const left = -window.innerWidth - 30;
-			translateArr = sideToggle ? [left, right] : [right, left];
-	
-			const anim = anime({
-				targets: char.el,
-				translateX: translateArr,
-				duration: helper.rand(12, 36) * 3000,
-				easing: 'linear',
-				complete: function(anim) {
-					ops.deleteChar(char.id);
-					char.el.remove();
-				},
-				update: function(anim) {
-					const progress = Math.round(anim.progress)
-					
-					if (progress == 10 && char.type == 'dinosaur' && !file.stage.includes('secondChar')) {
-						file.stage.push('secondChar');
-						controller.save();
-
-						actions.ux.mensagem('secondChar', () => {
-							file.stage.push('secondCharEnd');
-							controller.save();
-						});
-					}
-					
-					if (progress == 45 && !anim.control) {
-						anim.control = true;
-	
-						if (checkers.canVisit(char.type)) {
-							char.el.classList.add('clown');
-						
-							anim.pause();
-	
-							actions.street.visiting(char);
-						}
-					}
-				}
-			});
-
-			if (howMany({location: 'street'}) <= 2) {
-				anim.pause();
-				anim.seek(anim.duration / 4);
-				anim.play();
-			};
 		},
-		visiting (char) {
-			if (!file.stage.includes('firstReception')) {
-				file.stage.push('firstReception');
-				controller.save();
-	
-				actions.ux.mensagem('firstReception', () => {
-					file.stage.push('firstReceptionEnd');
-					controller.save();
-	
-					actions.reception.openCheckin()
+		checkCheckout: () => {
+			Object.values(file.chars)
+				.filter(char => char.location === 'hotel')
+				.forEach(char => {
+					if (Date.now() - char.checkinTime > dex[char.type].stay * config.dayMsConversion) {
+						char.checkingOut();
+					}
 				});
-			};
-	
-			const order = Object.values(file.chars).filter(char => char.location === 'reception').length + 1;
-	
-			anime({
-				targets: char.el,
-				easing: 'linear',
-				keyframes: [
-					{
-						duration: 1000,
-						translateY: getPosition('#escada').bottom + 10,
-						translateX: getPosition('#escada').left
-					},
-					{
-						duration: 500,
-						translateY: getPosition('.gerente').bottom
-					},
-					{
-						duration: 500 * (5 - order),
-						translateX: getPosition('.gerente').left + (order * 35),
-					},
-				],
-				complete: () => {
-					ops.updateChar(char.id, {
-						activity: 'waitingForCheckin',
-					});
-					
-					actions.reception.openCheckin();
-					if (file.chars[char.id].receptionOrder != order) actions.reception.adjustLine(char);
-				},
-			});
-	
-			ops.updateChar(char.id, {
-				location: 'reception',
-				activity: 'goingToReception',
-				receptionOrder: order
-			});
-		},
+		}
 	},
 	reception: {
 		checkIn: () => {
-			const first = helper.firstInLine();
+			const char = helper.firstInLine();
 
-			const floor = actions.building.nextOpenFloor();
+			const floor = helper.nextOpenFloor();
 			if (!floor) {
 				actions.ux.mensagem('noFloorAvailable');
 				return false;
 			};
 
-			if (!file.stage.includes('lastChar') && first.type == 'lord') {
-				file.stage.push('lastChar');
+			if (pushOnce(file.stage, 'lastChar') && char.type == 'lord') {
 				controller.save();
 
 				actions.ux.mensagem('lastChar', () => {
@@ -327,109 +260,32 @@ const actions = {
 				});
 			}
 
-			ops.updateChar(first.id, {
-				location: 'hotel',
-				roomFloor: floor.id,
-				checkinTime: Date.now(),
-				activity: 'goingToRoomAfterCheckin',
-			}, ['receptionOrder']);
-			ops.updateBuilding(floor.id, {
-				guests: file.building[floor.id].guests + 1
-			});
-				
-			const porta = floor.el.querySelector('.porta');
-	
-			anime({
-				targets: first.el,
-				easing: 'linear',
-				keyframes: [
-					{
-						duration: 1400,
-						translateX: getPosition('#recepcao .porta').left,
-					}, {
-						duration: 500,
-						opacity: 0,
-					}, {
-						duration: 500,
-						opacity: 1,
-						translateY: [getPosition(porta).bottom, getPosition(porta).bottom],
-					}, {
-						duration: 1000,
-						translateX: getPosition(floor.el).left + 5
-					}
-				],
-				complete: () => {
-					actions.room.wandering(first, porta);
-				}
-			});
-	
+			file.chars[char.id].checkingIn(floor);
 			actions.reception.closeCheckin();
 			actions.reception.advanceLine();
 		},
 		deny: () => {
-			const first = helper.firstInLine();
-	
-			ops.deleteChar(first.id);
-	
-			first.el.style.zIndex = 99999;
-			
-			anime({
-				targets: first.el,
-				keyframes: [
-					{
-						scale: 9,
-						translateY: '-=100px',
-						translateX: `+=${Math.floor(Math.random() * 161) - 30}px`,
-						duration: 200,
-						easing: 'easeOutQuint'
-					}, {
-						translateY: '+=500px',
-						duration: 1200,
-						easing: 'easeInQuint'
-					}
-				],
-				complete: () => first.el.remove()
-			});
-			
+			const char = helper.firstInLine();
+			file.chars[char.id].denyCheckin();
+
 			actions.reception.closeCheckin();
 			if (Object.values(file.chars).some(char => char.location === 'reception')) actions.reception.advanceLine();
 		},
 		checkout: () => {
-			const charId = file.locations['checkout'][0];
-			const char = file.chars[charId];
-			
-			anime({
-				targets: char.el,
-				easing: 'linear',
-				keyframes: [
-					{
-						duration: 1000,
-						translateX: getPosition('#escada').left
-					},
-					{
-						duration: 2000,
-						translateY: getPosition('#street').bottom,
-						scale: 1.5,
-						opacity: 0
-					},
-				],
-				complete: () => {
-					ops.deleteChar(charId);
-					char.el.remove();
-				}
-			});
+			const char = Object.values(file.chars)
+				.filter(char => char.activity === 'waitingCheckout')
+				.reduce((lowest, current) => {
+					return !lowest || current.checkoutOrder > lowest.checkoutOrder ? current : lowest;
+				}, null);
+			char.leaving();
 
-			ops.updateChar(charId, {
-				location: 'temporary',
-				activity: 'leavingHotel',
-			});
 			ops.updateCoins(600);
 
-			if (!Object.values(file.chars).some(char => char.activity === 'waitingCheckout'))
+			if (!howMany({activity: 'waitingCheckout'}))
 				actions.reception.closeCheckout();
 		},
 		openCheckin: () => {
-			if (!file.stage.includes('firstReceptionEnd')) return;
+			// if (!file.stage.includes('firstReceptionEnd')) return;
 
 			document.getElementById('checkin').classList.add('active');
 		},
@@ -446,158 +302,70 @@ const actions = {
 			Object.values(file.chars)
 				.filter(char => char.location === 'reception')
 				.forEach(char => {
-					ops.updateChar(char.id, {
-						receptionOrder: char.receptionOrder - 1
-					});
-	
-					if (char.activity == 'waitingForCheckin') actions.reception.adjustLine(char);
+					char.receptionOrder = char.receptionOrder - 1;
+
+					if (char.activity === 'waitingForCheckin')
+						char.adjustingLine();
 			});
 		},
-		adjustLine: (char) => {
-			ops.updateChar(char.id, {
-				activity: 'adjustingReceptionQueue',
-			});
-
-			anime({
-				targets: char.el,
-				duration: 200,
-				easing: 'linear',
-				translateX: getPosition('.gerente').left + (file.chars[char.id].receptionOrder * 35),
-				complete: () => {
-					actions.reception.openCheckin();
-
-					ops.updateChar(char.id, {
-						activity: 'waitingForCheckin',
-					});
-				} 
-			})
-		},
-	},
-	room: {
-		wandering: (char, porta) => {
-			ops.updateChar(char.id, {
-				activity: 'roomWandering',
-			})
-
-			anime({
-				targets: char.el,
-				duration: 4000,
-				delay: helper.rand(200, 2000),
-				easing: 'linear',
-				loop: true,
-				direction: 'alternate',
-				translateX: getPosition(porta).left - 35,
-			});
-		},
-		checkCheckout: () => {
-			Object.values(file.chars)
-				.filter(char => char.location === 'hotel')
-				.forEach(char => {
-					if (Date.now() - char.checkinTime > dex[char.type].stay * config.dayMsConversion) {
-						anime.remove(char.el);
-						
-						const door = file.building[char.roomFloor].el.querySelector('.porta');
-						const reception = document.getElementById('recepcao').querySelector('.porta');
-
-						anime({
-							targets: char.el,
-							easing: 'linear',
-							keyframes: [
-								{
-									duration: 1400,
-									translateX: getPosition(door).left,
-								}, {
-									duration: 500,
-									opacity: 0,
-								}, {
-									duration: 500,
-									opacity: 1,
-									translateY: [getPosition(reception).bottom, getPosition(reception).bottom],
-								}, {
-									duration: 500,
-									translateX: getPosition(reception).right + 15,
-								}
-							],
-							complete: () => {
-								ops.updateChar(char.id, {
-									activity: 'waitingCheckout'
-								});
-
-								actions.reception.openCheckout();
-							}
-						});
-
-						ops.updateBuilding(char.roomFloor, {
-							guests: file.building[char.roomFloor].guests - 1
-						})
-						ops.updateChar(char.id, {
-							location: 'checkout',
-							activity: 'goingToCheckout'
-						}, ['checkinTime', 'roomFloor']);
-					}
+		checkOutZIndex: () => {
+			Object.entries(file.chars)
+				.filter(([id, char]) => char.location === 'checkout')
+				.sort((a, b) => b[1].checkoutTime - a[1].checkoutTime)
+				.forEach(([id, char], index) => {
+					file.chars[id].checkoutOrder = index;
+					file.chars[id].zIndex(index);
 				});
 		}
 	},
-	building: {
-		nextOpenFloor: () => {
-			const floors = Object.values(file.building).filter(floor => floor.guests < 4);
-
-			if (!floors.length) return null;
-
-			const floor = floors.reduce((lowest, floor) => {
-				return !lowest || floor.id < lowest.id ? floor : lowest;
-			});
-
-			return floor;
-		},
-		nextToBuy: () => {
-			if (!Object.values(file.building).length) return hotel.andares[1];
-
-			const highestFloor = Object.values(file.building)
-				.reduce((highest, floor) => {
-					return !highest || floor.id > highest.id ? floor : highest;
-				});	
-			const next = hotel.andares[highestFloor.id + 1];
-			
-			return next;
-		},
-		purchaseFloor: () => {
-			const next = actions.building.nextToBuy();
-			
-			if (file.coins >= next.preco) {
-				ops.updateCoins(-1 * next.preco);
-				
-				const hotelEL = document.getElementById('hotel');
-				const template = document.querySelector('#andar').content;
-				const floor = template.firstElementChild.cloneNode(true);
-				floor.querySelector('p').innerHTML = next.texto;
-				hotelEL.insertBefore(floor, hotelEL.querySelector('.fudido'));
-				
-				const id = Object.keys(file.building).length ? Math.max(...Object.values(file.building).map(floor => floor.id)) + 1 : 1;
-
-				if (hotel.andares[id + 1]) {
-					document.querySelector('.fudido button').innerHTML = hotel.andares[id + 1].preco;
-				} else {
-					document.querySelector('.fudido button').style.display = 'none';
-				}
-		
-				file.building[id] = {
-					id: id,
-					guests: 0,
-					el: floor
-				}
-				controller.save();
-			}
-		}
-	},
 	ux: {
+		mensagem: (fluxo, callback) => {
+			const quadro = document.querySelector('#quadro');
+			const texto = quadro.querySelector('p');
+			let index = 0;
+		
+			quadro.style.display = 'block';
+			texto.innerHTML = textos[fluxo][index];
+		
+			quadro.onclick = () => {
+				index++;
+				if (index < textos[fluxo].length) {
+					texto.innerHTML = textos[fluxo][index];
+				} else {
+					quadro.style.display = 'none';
+					if (callback) callback();
+				}
+			};
+		},
+		goToCity: () => {
+			const world = document.querySelector('#world');
+			world.style.transform = 'translateX(0)';
+
+			document.querySelector('#nav #city_bt').style.display = 'none';
+			document.querySelector('#nav #hotel_bt').style.display = 'flex';
+
+			document.querySelector('#sky').classList.add('city');
+		},
+		goToHotel: () => {
+			const world = document.querySelector('#world');
+			world.style.transform = 'translateX(-100vw)';
+
+			document.querySelector('#nav #city_bt').style.display = 'flex';
+			document.querySelector('#nav #hotel_bt').style.display = 'none';
+
+			document.querySelector('#catalog').style.display = 'none';
+			
+			document.querySelector('#sky').classList.remove('city');
+		},
+	},
+	dex: {
 		openDex: () => {
 			if (!file.stage.includes('dex')) {
 				actions.ux.mensagem('dexVisit', () => {
 					file.stage.push('dex');
 					controller.save();
 
-					actions.ux.openDex();
+					actions.dex.openDex();
 				});
 
 				return;
@@ -606,7 +374,7 @@ const actions = {
 			const dexEl = document.getElementById('dex');
 
 			if (dexEl.style.display === 'block') {
-				actions.ux.closeDex();
+				actions.dex.closeDex();
 				return false;
 			}
 
@@ -618,19 +386,24 @@ const actions = {
 			Object.entries(dex).forEach(([type, entry]) => {
 				const div = document.createElement('div');
 				const char = document.createElement('div');
+				char.classList.add('char');
+				const sprite = document.createElement('div');
+				sprite.classList.add('sprite');
+
+				char.appendChild(sprite);
 
 				if (file.progress?.[type]?.show) {
 					char.classList.add('showed');
 					char.addEventListener('click', () => {
-						actions.ux.openDexDetail(type);
+						actions.dex.openDexDetail(type);
 					})
 				}
 
 				if (file.progress?.[type]?.visit) {
-					char.classList.add('char', type);
+					sprite.classList.add(type);
 				} else {
-					char.classList.add('char', 'locked');
-					char.innerHTML = '🔒';
+					sprite.classList.add('locked');
+					sprite.innerHTML = '🔒';
 				}
 
 				div.appendChild(char);
@@ -652,25 +425,22 @@ const actions = {
 			const details = document.querySelector('#dex .details');
 			details.style.display = 'flex';
 
+			let text = '';
 			if (file.progress?.[type]?.visit) {
-				let text = '';
 				text += '<b>Visitar:</b><br>'+ solve.texts(dex[type].show);
 				text += '<b>Check-In:</b><br>'+ solve.texts(dex[type].visit);
 				
 				details.querySelector('.name').innerHTML = dex[type].name;
-				details.querySelector('.char').classList = ['char'];
-				details.querySelector('.char').classList.add(type);
-				details.querySelector('.char').innerHTML = '';
+				details.querySelector('.char div.sprite').classList.replace(details.querySelector('.char div.sprite').classList.item(1), type);
+				details.querySelector('.char div').innerHTML = '';
 				details.querySelector('.rules').innerHTML = text;
 			} else {
-				let text = '';
 				text += '<b>Visitar:</b><br>'+ solve.texts(dex[type].show);
 				text += '<b>Check-In:</b><br>'+ solve.texts(dex[type].visit);
 				
 				details.querySelector('.name').innerHTML = '???';
-				details.querySelector('.char').classList = ['char'];
-				details.querySelector('.char').classList.add('locked');
-				details.querySelector('.char').innerHTML = '🔒';
+				details.querySelector('.char div.sprite').classList.replace(details.querySelector('.char div.sprite').classList.item(1), 'locked');
+				details.querySelector('.char div').innerHTML = '🔒';
 				details.querySelector('.rules').innerHTML = text;
 			}
 		},
@@ -704,10 +474,9 @@ const actions = {
 						],
 					});
 	
-					document.querySelector('.fudido button').innerHTML = hotel.andares[1].preco;
 					document.querySelector('.fudido button').style.display = 'block';
 
-					actions.ux.backDex();
+					actions.dex.backDex();
 				});
 
 				return;
@@ -719,69 +488,11 @@ const actions = {
 			document.querySelector('#dex .details').style.display = 'none';
 			document.querySelector('#dex #back_dex').style.display = 'none';
 		},
-		openCard: (charName) => {
-			const dexEl = document.getElementById('dex');
-			dexEl.style.display = 'block';
-			
-			const p = dexEl.querySelector('p');
-		
-			const unlocked = dex[charName].unlocked;
-			if (unlocked) {
-				p.innerHTML = charName + '<br><br>';
-			} else {
-				p.innerHTML = '???<br><br>';
-			}
-			
-			const showCondition = [];
-			if (!dex[charName].show.length) showCondition.push('Sem critérios.');
-			for (const condition of chars[charName].show) {
-			}
-			p.innerHTML += 'Aparecer: ' + showCondition.join(', ') + '<br>';
-		
-			const visitCondition = [];
-			if (!dex[charName].visit.length) visitCondition.push('Sem critérios.');
-			for (const condition of dex[charName].visit) {
-				if (condition.minAndares) {
-					visitCondition.push('Pelo menos ' + condition.minAndares + ' quarto disponível.');
-				}
-			}
-			p.innerHTML += 'Visitar: ' + visitCondition.join(', ') + '<br>';
-		},
-		mensagem: (fluxo, callback) => {
-			const quadro = document.querySelector('#quadro');
-			const texto = quadro.querySelector('p');
-			let index = 0;
-		
-			quadro.style.display = 'block';
-			texto.innerHTML = textos[fluxo][index];
-		
-			quadro.onclick = () => {
-				index++;
-				if (index < textos[fluxo].length) {
-					texto.innerHTML = textos[fluxo][index];
-				} else {
-					quadro.style.display = 'none';
-					if (callback) callback();
-				}
-			};
-		},
-		goToCity: () => {
-			const world = document.querySelector('#world');
-			world.style.transform = 'translateX(0)';
-
-			document.querySelector('#nav #city_bt').style.display = 'none';
-			document.querySelector('#nav #hotel_bt').style.display = 'flex';
-
-		},
-		goToHotel: () => {
-			const world = document.querySelector('#world');
-			world.style.transform = 'translateX(-100vw)';
-
-			document.querySelector('#nav #city_bt').style.display = 'flex';
-			document.querySelector('#nav #hotel_bt').style.display = 'none';
-
-			document.querySelector('#catalog').style.display = 'none';
-		},
+	},
+	roomInfo: {
+		close: () => {
+			document.querySelector('#room_info').style.display = 'none';
+		}
 	}
 }
 
@@ -790,7 +501,8 @@ const controller = {
 		localStorage.setItem('file', JSON.stringify(file));
 	},
 	load: () => {
-		if (localStorage.getItem('file')) file = JSON.parse(localStorage.getItem('file'));
+		if (localStorage.getItem('file'))
+			Object.assign(file, JSON.parse(localStorage.getItem('file')));
 
 		if (file.version != rawFile.version) {
 			controller.reset();
@@ -803,16 +515,12 @@ const controller = {
 			controller.init.intro();
 		} else {
 			document.querySelector('#info_bar #dex_bt').style.opacity = 1;
-			document.querySelector('#dex_bt').addEventListener('click', actions.ux.openDex);
+			document.querySelector('#dex_bt').addEventListener('click', actions.dex.openDex);
 		}
 
 		controller.init.building();
 		controller.init.chars();
 		controller.init.ux();
-
-		actions.street.showChar();
-		actions.street.showChar();
-		actions.street.showChar();
 
 		controller.init.showCharInterval();
 	},
@@ -822,7 +530,7 @@ const controller = {
 		throw new Error('Reset');
 	},
 	godMode: async () => {
-		file = structuredClone(rawFile);
+		Object.assign(file, rawFile);
 		file.mode = 'god';
 		file.start = Date.now(),
 		controller.save();
@@ -848,7 +556,7 @@ const controller = {
 						}
 					],
 					complete: () => {
-						document.querySelector('#dex_bt').addEventListener('click', actions.ux.openDex);
+						document.querySelector('#dex_bt').addEventListener('click', actions.dex.openDex);
 
 						file.stage.push('intro');
 						controller.save();
@@ -856,86 +564,38 @@ const controller = {
 				});
 			});
 		},
-		chars: () => {
-			Object.values(file.chars).filter(char => char.location === 'street').forEach(char => {
-				ops.deleteChar(char.id);
-			});
-		
-			Object.entries(file.chars).filter(([id, char]) => char.location === 'reception').forEach(([id, char]) => {
-				el = actions.renderChar(char.type);
-				ops.updateChar(id, {
-					el: el,
-					activity: 'waitingForCheckin',
-				});
-
-				el.style.transform = `translateY(${getPosition('.gerente').bottom}px) translateX(${getPosition('.gerente').left + (char.receptionOrder * 35)}px)`;
-			});
-	
-			Object.entries(file.chars).filter(([id, char]) => char.location === 'hotel').forEach(([id, char]) => {
-				el = actions.renderChar(char.type);
-				file.chars[id].el = el;
-	
-				const floor = file.building[char.roomFloor].el;
-				el.style.transform = `translateY(${getPosition(floor).bottom}px) translateX(${getPosition(floor).left + 5}px)`;
-				
-				actions.room.wandering(file.chars[id], floor.querySelector('.porta'));
-			});
-	
-			const porta = document.getElementById('recepcao').querySelector('.porta');
-			
-			Object.entries(file.chars).filter(([id, char]) => char.location === 'checkout').forEach(([id, char]) => {
-				el = actions.renderChar(char.type);
-				
-				ops.updateChar(id, {
-					el: el,
-					activity: 'waitingCheckout',
-				});
-
-				el.style.transform = `translateY(${getPosition(porta).bottom}px) translateX(${getPosition(porta).right + 15}px)`;
-			});
-	
-			Object.entries(file.chars).filter(([id, char]) => char.location === 'temporary').forEach(([id, char]) => {
-				ops.deleteChar(id);
-			});
-		},
 		building: () => {
-			const hotelEl = document.getElementById('hotel');
-	
-			Object.entries(file.building).forEach(([key, floor]) => {
-				const template = document.querySelector('#andar').content;
-				const floorEl = template.firstElementChild.cloneNode(true);
-				floorEl.querySelector('p').innerHTML = hotel.andares[key].texto;
-				hotelEl.appendChild(floorEl);
-	
-				file.building[key].el = floorEl;
+			let highestFloor = 0;
+
+			Object.entries(file.building).forEach(([id, value]) => {
+				file.building[id] = new Floor(value);
+				file.building[id].load();
+
+				highestFloor = id;
 			});
-	
-			const template = document.importNode(document.querySelector('#andar-fudido').content, true);
-			const button = template.querySelector('button');
-			button.innerHTML = andar.preco;
-			button.addEventListener('click', actions.building.purchaseFloor);
 			
-			hotelEl.appendChild(template);
-			
-			const fudidoEl = document.querySelector('.fudido button');
-			
-			const highestFloor = Object.values(file.building).reduce((highest, floor) => Math.max(highest, floor.id), 0);
-	
-			if (file.stage.includes('intro')) {
-				document.getElementById('coins').innerHTML = '🪙 ' + file.coins;
-				
-				if (hotel.andares[highestFloor + 1]) {
-					fudidoEl.style.display = 'block';
-					fudidoEl.innerHTML = hotel.andares[highestFloor + 1].preco;
-				} else {
-					fudidoEl.innerHTML = 'Sem andares';
-					fudidoEl.style.display = 'none';
-				}
-			};
+			new Floor({id: parseInt(highestFloor) + 1}).attachFudido();
+		},
+		chars: () => {
+			Object.entries(file.chars).forEach(([id, value]) => {
+				file.chars[id] = new Char(value);
+				file.chars[id].load();
+			})
+
+			actions.events.showChar();
+			actions.events.showChar();
+			actions.events.showChar();
+
+			if (howMany({activity: 'waitingForCheckin'})) actions.reception.openCheckin();
+
+			if (howMany({activity: 'waitingCheckout'})) {
+				actions.reception.checkOutZIndex();
+				actions.reception.openCheckout();
+			} 
 		},
 		ux: () => {
-			if (Object.values(file.chars).some(char => char.location === 'reception')) actions.reception.openCheckin();
-			if (Object.values(file.chars).some(char => char.location === 'checkout')) actions.reception.openCheckout();
+			const canvas = document.querySelector('#canvas');
+			canvas.scrollTop = canvas.scrollHeight;
 
 			if (file.stage.includes('dex2')) {
 				document.querySelector('#info_bar #coins').style.opacity = 1;
@@ -956,8 +616,9 @@ const controller = {
 			document.querySelector('#checkin_bt').addEventListener('click', actions.reception.checkIn);
 			document.querySelector('#denied_bt').addEventListener('click', actions.reception.deny);
 			document.querySelector('#checkout_bt').addEventListener('click', actions.reception.checkout);
-			document.querySelector('#dex #close_dex').addEventListener('click', actions.ux.closeDex);
-			document.querySelector('#dex #back_dex').addEventListener('click', actions.ux.backDex);
+			document.querySelector('#dex #close_dex').addEventListener('click', actions.dex.closeDex);
+			document.querySelector('#dex #back_dex').addEventListener('click', actions.dex.backDex);
+			document.querySelector('#room_info .close').addEventListener('click', actions.roomInfo.close);
 			document.querySelector('#nav #city_bt').addEventListener('click', actions.ux.goToCity);
 			document.querySelector('#nav #hotel_bt').addEventListener('click', actions.ux.goToHotel);
 
@@ -981,15 +642,17 @@ const controller = {
 			document.getElementById('clock').innerHTML = hours.toString().padStart(2, '0') +':'+ minutes.toString().padStart(2, '0');
 	
 			if (hours >= 6 && hours < 18) {
-				document.querySelector('#sky').style.backgroundColor = 'aqua';
+				document.querySelector('#sky #day').style.opacity = 1;
+				document.querySelector('#sky #night').style.opacity = 0;
 			} else {
-				document.querySelector('#sky').style.backgroundColor = 'midnightblue';
+				document.querySelector('#sky #day').style.opacity = 0;
+				document.querySelector('#sky #night').style.opacity = 1;
 			}
 	
-			actions.room.checkCheckout();
+			actions.events.checkCheckout();
 		},
 		showCharInterval: () => {
-			actions.street.showChar();
+			actions.events.showChar();
 			setTimeout(controller.init.showCharInterval, helper.rand(2000, 8000));
 		}
 	}
@@ -1009,6 +672,17 @@ const helper = {
 			});
 
 		return first;
+	},
+	nextOpenFloor: () => {
+		const floors = Object.values(file.building).filter(floor => floor.guests < 4);
+
+		if (!floors.length) return false;
+
+		const floor = floors.reduce((lowest, floor) => {
+			return !lowest || floor.id < lowest.id ? floor : lowest;
+		});
+
+		return floor;
 	},
 }
 
@@ -1081,8 +755,9 @@ const checkers = {
 				controller.save();
 
 				Object.values(file.chars).filter(char => char.type === type).forEach(char => {
-					char.el.classList.add(type);
-					char.el.innerHTML = '';
+					const sprite = char.el.querySelector('div');
+					sprite.classList.add(type);
+					sprite.innerHTML = '';
 				});
 			}
 			
@@ -1097,13 +772,14 @@ function getPosition(selector) {
 	const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
 
 	const rect = el.getBoundingClientRect();
-	const stage = document.querySelector('#stage').getBoundingClientRect();
+	const world = document.querySelector('#world').getBoundingClientRect();
+	const hotel = document.querySelector('#hotel').getBoundingClientRect();
 
 	return {
-		top: rect.top - stage.bottom,
-		bottom: rect.bottom - stage.bottom,
-		left: rect.left,
-		right: rect.right,
+		top: rect.top - world.bottom,
+		bottom: rect.bottom - world.bottom,
+		left: rect.left - hotel.left,
+		right: rect.right - hotel.left,
 	};
 }
 
@@ -1117,23 +793,6 @@ function howMany(filters) {
 }
 
 const ops = {
-	updateChar: (id, upd = {}, del = []) => {
-		if (upd.location) {
-			if (file.chars[id].location) ops.updateLocation(file.chars[id].location, 'del', id);
-			ops.updateLocation(upd.location, 'add', id);
-		};
-		
-		Object.assign(file.chars[id], upd);
-		del.forEach(key => delete file.chars[id][key]);
-
-		controller.save();
-	},
-	deleteChar: (id) => {
-		ops.updateLocation(file.chars[id].location, 'del', id);
-		
-		delete file.chars[id];
-		controller.save();
-	},
 	updateBuilding: (id, upd = {}, del = []) => {
 		Object.assign(file.building[id], upd);
 		del.forEach(key => delete file.building[id][key]);
@@ -1201,8 +860,6 @@ const shop = {
 		const color = e.target.color;
 
 		if (file.coins >= decor[color].price) {
-			console.log('Comprando decoração...');
-			
 			file.decor.push(color);
 			ops.updateCoins(-decor[color].price);
 
@@ -1213,4 +870,599 @@ const shop = {
 			el.removeEventListener('click', shop.purchaseDecor);
 		}
 	}
+}
+
+class Floor {
+	constructor(props) {
+		props.guests = props.guests || 0;
+
+		Object.assign(this, props);
+
+		return this.proxy();
+	}
+
+	proxy() {
+		const proxy = {
+			get(target, prop, receiver) {
+				if (prop === 'target')
+						return target;
+				return Reflect.get(target, prop, receiver);
+			},
+			set: (target, prop, value) => {
+				target[prop] = value;
+				controller.save();
+				
+				return true;
+			},
+			deleteProperty: (target, prop) => {
+				delete target[prop];
+				controller.save();
+				
+				return true;
+			}
+		}
+		
+		return new Proxy(this, proxy);
+	}
+
+	toJSON() {
+		const dontSave = [];
+	
+		const obj = {};
+		Object.keys(this).forEach(prop => {
+			if (!dontSave.includes(prop))
+				obj[prop] = this[prop];
+		});
+	
+		return obj;
+	}
+
+	attach() {
+		const hotelEl = document.getElementById('hotel');
+
+		const template = document.querySelector('#andar').content;
+		const el = template.firstElementChild.cloneNode(true);
+
+		el.addEventListener('click', (e) => {
+			e.preventDefault();
+			this.openInfo();
+			console.log(this.target);
+		});
+
+		el.querySelector('p').innerHTML = hotel.andares[this.id].texto;
+
+		hotelEl.appendChild(el);
+
+		this.el = el;
+	}
+
+	attachFudido() {
+		const hotelEl = document.getElementById('hotel');
+
+		const template = document.querySelector('#andar-fudido').content;
+		const el = template.firstElementChild.cloneNode(true);
+
+		if (hotel.andares[this.id]) {
+			const button = el.querySelector('button');
+			button.innerHTML = hotel.andares[this.id].preco;
+			button.addEventListener('click', this.purchase.bind(this));
+			
+			if (hotel.andares[this.id] && file.stage.includes('intro')) button.style.display = 'block';
+		}
+			
+		hotelEl.appendChild(el);
+		this.el = el;
+
+		file.live.nextFloor = this;
+	}
+
+	load() {
+		this.attach();
+		
+		if (this.decor) this.changeDecor(this.decor);
+
+		this.guests = howMany({roomFloor: this.id});
+	}
+
+	purchase() {
+		const preco = hotel.andares[this.id].preco;
+		
+		if (file.coins < preco) return false;
+		ops.updateCoins(-preco);
+
+		file.building[this.id] = this;
+		this.el.remove();
+		this.attach();
+
+		new Floor({id: this.id + 1}).attachFudido();
+
+		document.querySelector('#canvas').scrollTop += this.el.offsetHeight;
+	}
+
+	openInfo() {
+		const info = document.querySelector('#room_info');
+		info.style.display = 'block';
+
+		info.querySelector('.name').innerHTML = hotel.andares[this.id].texto;
+
+		info.querySelector('.decor').innerHTML = '';
+		Object.entries(decor)
+			.filter(([id]) => file.decor.includes(id))
+			.forEach(([id, decor]) => {
+				const el = document.createElement('div');
+				el.style.backgroundColor = decor.hex;
+				
+				el.addEventListener('click', (e) => {
+					e.preventDefault();
+					this.changeDecor(id);
+					actions.roomInfo.close();
+				});
+
+				info.querySelector('.decor').appendChild(el);
+		})
+	}
+
+	changeDecor(id) {
+		this.el.style.backgroundColor = decor[id].hex;
+		this.el.querySelector('p').style.color = decor[id].text;
+
+		this.decor = id;
+	}
+}
+
+class Char {
+	constructor(props) {
+		Object.assign(this, props);
+
+		return this.proxy();
+	}
+
+	proxy() {
+		const proxy = {
+			get(target, prop, receiver) {
+				if (prop === 'target')
+						return target;
+				return Reflect.get(target, prop, receiver);
+			},
+			set: (target, prop, value) => {
+				target[prop] = value;
+				controller.save();
+				
+				return true;
+			},
+			deleteProperty: (target, prop) => {
+				delete target[prop];
+				controller.save();
+				
+				return true;
+			}
+		}
+		
+		return new Proxy(this, proxy);
+	}
+
+	toJSON() {
+		const dontSave = ['el'];
+	
+		const obj = {};
+		Object.keys(this).forEach(prop => {
+			if (this[prop] instanceof Date) obj[prop] = this[prop].getTime();
+
+			if (!dontSave.includes(prop))
+				obj[prop] = this[prop];
+		});
+	
+		return obj;
+	}
+
+	delete() {
+		this.el.remove();
+		delete file.chars[this.id];
+
+		controller.save();
+	}
+
+	render() {
+		const el = document.createElement('div');
+		el.classList.add('char');
+
+		el.addEventListener('click', (e) => {
+			e.preventDefault();
+			this.tag('ai');
+			console.log(this.target);
+		});
+
+		const sprite = document.createElement('div');
+		sprite.classList.add('sprite');
+
+		if (file.progress?.[this.type]?.visit) {
+			sprite.classList.add(this.type);
+		} else {
+			sprite.classList.add('locked');
+			sprite.innerHTML = '🔒';
+		}
+		
+		el.appendChild(sprite);
+		el.sprite = sprite;
+
+		document.getElementById('chars').appendChild(el);
+		this.el = el;
+	}
+
+	zIndex(index) {
+		this.el.style.zIndex = index;
+	}
+
+	load() {
+		this.render();
+
+		if (this.checkinTime) this.checkinTime = new Date(this.checkinTime);
+		if (this.checkoutTime) this.checkoutTime = new Date(this.checkoutTime);
+
+		if (['goingToReception', 'adjustingReceptionQueue', 'waitingForCheckin'].includes(this.activity)) {
+			this.activity = 'waitingForCheckin';
+
+			const yPos = getPosition('.gerente').bottom;
+			const xPos = getPosition('.gerente').left + (this.receptionOrder * 35);
+			this.el.style.transform = `translateY(${yPos}px) translateX(${xPos}px)`;
+		}
+
+		if (['goingToRoomAfterCheckin', 'roomWandering'].includes(this.activity)) {
+			this.activity = 'roomWandering';
+
+			const yPos = getPosition(file.building[this.roomFloor].el.querySelector('.porta')).bottom;
+			const xPos = getPosition(file.building[this.roomFloor].el).left + 5;
+			this.el.style.transform = `translateY(${yPos}px) translateX(${xPos}px)`;
+			this.el.sprite.classList.remove('toRight');
+
+			this.roomWandering();
+		}
+
+		if (['goingToCheckout', 'waitingCheckout'].includes(this.activity)) {
+			this.activity = 'waitingCheckout';
+
+			const yPos = getPosition('#recepcao').bottom;
+			const xPos = getPosition('#recepcao .porta').right + 15;
+			this.el.style.transform = `translateY(${yPos}px) translateX(${xPos}px)`;
+			this.el.sprite.classList.add('toRight');
+		}
+	}
+
+	tag(text) {
+		const tag = document.createElement('div');
+		tag.classList.add('tag');
+		tag.innerHTML = text;
+
+		this.el.appendChild(tag);
+
+		anime({
+			targets: tag,
+			opacity: 0,
+			translateY: -30,
+			duration: 600,
+			easing: 'linear',
+			complete: () => {
+				tag.remove();
+			}
+		})
+	}
+
+	streetWandering(sideToggle) {
+		this.location = 'street';
+		this.activity = 'streetWandering';
+
+		const randomY = helper.rand(0, 60);
+		this.el.style.transform = `translateY(${getPosition('#street').bottom - randomY}px)`;
+		this.el.style.zIndex = 100 - randomY;
+
+		if (sideToggle) this.el.sprite.classList.add('toRight');
+		const left = -window.innerWidth - 50;
+		const right = window.innerWidth * 2;
+		const translateArr = sideToggle ? [left, right] : [right, left];
+
+		const anim = anime({
+			targets: this.el,
+			translateX: translateArr,
+			duration: helper.rand(12, 36) * 3000,
+			easing: 'linear',
+			complete: () => {
+				this.delete()
+			},
+			update: (anim) => {
+				const progress = Math.round(anim.progress)
+				
+				if (progress == 10 && this.type == 'dinosaur' && pushOnce(file.stage, 'secondChar')) {
+					controller.save();
+					
+					actions.ux.mensagem('secondChar', () => {
+						file.stage.push('secondCharEnd');
+						controller.save();
+					});
+				}
+				
+				if (progress >= 45 && setOnce(anim, 'checkVisit') && checkers.canVisit(this.type)) {
+					anim.pause();
+					this.visiting();
+				}
+			}
+		});
+
+		if (howMany({location: 'street'}) <= 2) {
+			anim.pause();
+			anim.seek(anim.duration / 4);
+			anim.play();
+		};
+	}
+
+	visiting() {
+		if (pushOnce(file.stage, 'firstReception')) {
+			controller.save();
+
+			actions.ux.mensagem('firstReception', () => {
+				file.stage.push('firstReceptionEnd');
+				controller.save();
+
+				if (Object.values(file.chars).some(char => char.activity == 'waitingForCheckin'))
+					actions.reception.openCheckin();
+			});
+		};
+
+		this.receptionOrder = howMany({location: 'reception'}) + 1,
+		this.location = 'reception';
+		this.activity = 'goingToReception';
+
+		const originalReceptinOrder = this.receptionOrder;
+
+		anime({
+			targets: this.el,
+			easing: 'linear',
+			keyframes: [
+				{
+					duration: 1000,
+					translateY: getPosition('#escada').bottom + 10,
+					translateX: getPosition('#escada').left
+				},
+				{
+					duration: 500,
+					translateY: getPosition('.gerente').bottom
+				},
+				{
+					duration: 500 * (5 - this.receptionOrder),
+					translateX: getPosition('.gerente').left + (this.receptionOrder * 35),
+				},
+			],
+			update: (anim) => {
+				if (anim.currentTime > 1500 && setOnce(anim, 'naEscada'))
+					this.el.sprite.classList.remove('toRight');
+			},
+			complete: () => {
+				this.activity = 'waitingForCheckin';
+
+				if (originalReceptinOrder === 1 && file.stage.includes('firstReceptionEnd')) actions.reception.openCheckin();
+				if (this.receptionOrder < originalReceptinOrder) this.adjustingLine();
+			},
+		});
+	}
+
+	adjustingLine() {
+		this.activity = 'adjustingReceptionQueue';
+
+		const originalReceptinOrder = this.receptionOrder;
+		
+		anime({
+			targets: this.el,
+			duration: 1000,
+			easing: 'linear',
+			translateX: getPosition('.gerente').left + (this.receptionOrder * 35),
+			complete: () => {
+				this.activity = 'waitingForCheckin';
+
+				if (originalReceptinOrder === 1 && file.stage.includes('firstReceptionEnd')) actions.reception.openCheckin();
+				if (this.receptionOrder < originalReceptinOrder) this.adjustingLine();
+			}
+		})
+	}
+
+	denyCheckin() {
+		this.activity = 'beingKicked';
+		delete this.location;
+		
+		this.el.style.zIndex = 99999;
+		
+		anime({
+			targets: this.el,
+			keyframes: [
+				{
+					scale: 9,
+					translateY: '-=100px',
+					translateX: `+=${Math.floor(Math.random() * 161) - 30}px`,
+					duration: 200,
+					easing: 'easeOutQuint'
+				}, {
+					translateY: '+=500px',
+					duration: 1200,
+					easing: 'easeInQuint'
+				}
+			],
+			complete: () => {
+				this.delete()
+			}
+		});
+	}
+
+	checkingIn(floor) {
+		this.location = 'hotel',
+		this.roomFloor = floor.id,
+		this.checkinTime = Date.now(),
+		this.activity = 'goingToRoomAfterCheckin',
+		delete this.receptionOrder;
+
+		file.building[floor.id].guests++;
+
+		const porta = floor.el.querySelector('.porta');
+	
+		anime({
+			targets: this.el,
+			easing: 'linear',
+			delay: 200,
+			keyframes: [
+				{
+					duration: 1400,
+					translateX: getPosition('#recepcao .porta').left,
+				}, {
+					duration: 500,
+					opacity: 0,
+				}, {
+					duration: 500,
+					opacity: 1,
+					translateY: [getPosition(porta).bottom, getPosition(porta).bottom],
+				}, {
+					duration: 1000,
+					translateX: getPosition(floor.el).left + 5
+				}
+			],
+			begin: () => {
+				this.el.sprite.classList.add('toRight');
+			},
+			update: (anim) => {
+				if (anim.currentTime > 2400 && setOnce(anim, 'roomArive'))
+					this.el.sprite.classList.remove('toRight');
+			},
+			complete: () => {
+				this.roomWandering();
+			}
+		});
+	}
+
+	roomWandering() {
+		this.activity = 'roomWandering';
+
+		const porta = file.building[this.roomFloor].el.querySelector('.porta');
+
+		anime({
+			targets: this.el,
+			duration: 4000,
+			delay: helper.rand(200, 2000),
+			easing: 'linear',
+			loop: true,
+			direction: 'alternate',
+			translateX: getPosition(porta).left - 35,
+			loopBegin: () => {
+				this.el.sprite.classList.toggle('toRight');
+			}
+		});
+	}
+
+	checkingOut() {
+		const door = file.building[this.roomFloor].el.querySelector('.porta');
+		const reception = document.getElementById('recepcao').querySelector('.porta');
+		
+		file.building[this.roomFloor].guests--;
+		
+		this.location = 'checkout';
+		this.activity = 'goingToCheckout';
+		delete this.checkinTime;
+		delete this.roomFloor;
+
+		this.checkoutTime = new Date;
+
+		anime.remove(this.el);
+		anime({
+			targets: this.el,
+			easing: 'linear',
+			keyframes: [
+				{
+					duration: 1400,
+					translateX: getPosition(door).left,
+				}, {
+					duration: 500,
+					opacity: 0,
+				}, {
+					duration: 500,
+					opacity: 1,
+					translateY: [getPosition(reception).bottom, getPosition(reception).bottom],
+				}, {
+					duration: 500,
+					translateX: getPosition(reception).right + 15,
+				}
+			],
+			begin: () => {
+				this.el.sprite.classList.add('toRight');
+			},
+			update: (anim) => {
+				if (anim.currentTime > 1900 && setOnce(anim, 'noElevador'))
+					actions.reception.checkOutZIndex();
+			},
+			complete: () => {
+				this.activity = 'waitingCheckout';
+				actions.reception.openCheckout();
+			}
+		});
+	}
+
+	leaving() {
+		delete this.location;
+		this.activity = 'leavingHotel';
+
+		this.tag('+600');
+		
+		anime({
+			targets: this.el,
+			easing: 'linear',
+			keyframes: [
+				{
+					delay: 200,
+					duration: 1000,
+					translateX: getPosition('#escada').left
+				},
+				{
+					duration: 2000,
+					translateY: getPosition('#street').bottom,
+					scale: 1.5,
+					opacity: 0
+				},
+			],
+			begin: () => {
+				this.el.sprite.classList.remove('toRight');
+			},
+			complete: () => {
+				this.delete();
+			}
+		});
+	}
+}
+
+document.addEventListener('touchstart', function (e) {
+	if (e.touches.length > 1) e.preventDefault();
+}, {passive: false});
+document.addEventListener('gesturestart', function (e) {
+	e.preventDefault();
+}, {passive: false});
+document.addEventListener('dblclick', function (e) {
+	e.preventDefault();
+});
+
+function setCanvasHeight() {
+	const canvas = document.getElementById('canvas');
+	canvas.style.height = window.innerHeight + 'px';
+	canvas.scrollTop = canvas.scrollHeight;
+}
+window.addEventListener('load', waitForGod);
+function waitForGod() {
+	setTimeout(setCanvasHeight, 1000);
+}
+
+function setOnce(who, what) {
+	if (!who[what]) {
+		who[what] = true;
+		return true;
+	}
+	return false;
+}
+function pushOnce(who, what) {
+	if (!who.includes(what)) {
+		who.push(what);
+		return true;
+	}
+	return false;
 }
