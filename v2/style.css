@@ -99,6 +99,28 @@ div {
 	display: none;
 }
 
+#checkin_form {
+	position: fixed;
+	bottom: 195px;
+	width: calc(100vw - 60px);
+	margin: calc(90px + env(safe-area-inset-top)) 30px 0;
+	border: 2px solid black;
+	padding: 20px;
+	background-color: white;
+	color: black;
+	z-index: 4;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	display: none;
+
+	.name {
+		width: 100%;
+		text-align: center;
+		font: 24px/24px Arial;
+	}
+}
+
 #dex {
 	position: fixed;
 	width: calc(100vw - 60px);
@@ -493,7 +515,7 @@ div {
 			#checkin {
 				position: absolute;
 				top: 10px;
-				left: -20px;
+				left: -10px;
 				width: 320px;
 				display: none;
 		
@@ -511,10 +533,10 @@ div {
 					border: 2px solid green;
 				}
 		
-				#denied_bt {
+				/* #denied_bt {
 					background-color: lightcoral;
 					border: 2px solid red;
-				}
+				} */
 			}
 
 			#checkout_bt {
@@ -619,19 +641,16 @@ div {
 
 		&.clown {
 			border: none;
-	
 			background-color: unset;
 			background-image: url('images/clown.png');
 		}
 		&.dinosaur {
 			border: none;
-	
 			background-color: unset;
 			background-image: url('images/dinosaur.png');
 		}
 		&.ghost {
 			border: none;
-	
 			background-color: unset;
 			background-image: url('images/ghost.png');
 		}
@@ -639,6 +658,26 @@ div {
 			border: none;
 			background-color: unset;
 			background-image: url('images/lord.png');
+		}
+		&.ballet {
+			border: none;
+			background-color: unset;
+			background-image: url('images/ballet.png');
+		}
+		&.executive {
+			border: none;
+			background-color: unset;
+			background-image: url('images/executive.png');
+		}
+		&.sleepwalker {
+			border: none;
+			background-color: unset;
+			background-image: url('images/sleepwalker.png');
+		}
+		&.fish {
+			border: none;
+			background-color: unset;
+			background-image: url('images/fish.png');
 		}
 	}
 

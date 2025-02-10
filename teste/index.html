@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+	<link rel="stylesheet" href="style.css?v=2" type="text/css">
+	<link rel="manifest" href="manifest.json">
+	<title>Hotelzinho</title>
+
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+	<div id="line"></div>
+	<div id="foto">
+		<img src="foto.png" alt="">
+	</div>
+	<div id="quadro">
+		<p></p>
+		<button>próximo</button>
+	</div>
+	<div id="checkin_form">
+		<div class="name"></div>
+		<div class="days"></div>
+		<div class="rate"></div>
+		<div class="buttons">
+			<button class="accept">Check-In</button>
+			<button class="deny">Chutar</button>
+			<button class="close">fechar</button>
+		</div>
+	</div>
+	<div id="dex">
+		<div class="list"></div>
+		<div class="details">
+			<div class="name"></div>
+			<div class="char">
+				<div class="sprite gambiarra"></div>
+			</div>
+			<div class="rules"></div>
+		</div>
+		<button id="close_dex">fechar</button>
+		<button id="back_dex">voltar</button>
+	</div>
+	<div id="room_info">
+		<div class="name"></div>
+		<div class="decor"></div>
+		<button class="close">fechar</button>
+	</div>
+	<div id="catalog">
+		<div class="list"></div>
+		<button id="close_catalog">fechar</button>
+	</div>
+	<div id="info_bar">
+		<div id="coins">🪙 0</div>
+		<div id="dex_bt">dex</div>
+		<div id="clock">00:00</div>
+		<div id="godmode">god</div>
+		<div id="reset">reset</div>
+	</div>
+	<div id="nav">
+		<div id="city_bt">🏙️</div>
+		<div id="hotel_bt">🛎️</div>
+	</div>
+	<div id="canvas">
+		<div id="sky">
+			<div id="night"></div>
+			<div id="day"></div>
+		</div>
+		<div id="world">
+			<div id="city">
+				<div id="stars2"></div>
+				<div id="stores">
+					<div id="decoration">
+						<div class="sign">🛋️</div>
+						<div class="door door1"></div>
+						<div class="door door2"></div>
+					</div>
+				</div>
+				<div id="street2"></div>
+			</div>
+			<div id="stage">
+				<div id="stars"></div>
+				<div id="hotel">
+					<div id="recepcao">
+						<div id="escada"></div>
+						<div id="checkin">
+							<button id="checkin_bt">Check-In</button>
+						</div>
+						<button id="checkout_bt">Checkout</button>
+						<div class="gerente"></div>
+						<p>RECEPÇÃO</p>
+						<div class="porta"></div>
+					</div>
+				</div>
+				<div id="street"></div>
+				<div id="chars"></div>
+			</div>
+		</div>
+	</div>
+
+	<template id="andar">
+		<div class="andar">
+			<p></p>
+			<div class="porta"></div>
+		</div>
+	</template>
+	<template id="andar-fudido">
+		<div class="andar fudido">
+			<button></button>
+			<div class="sujeira" style="left: 20px"></div>
+			<div class="sujeira" style="left: 40px; transform: scale(2);"></div>
+			<div class="sujeira" style="left: 100px"></div>
+			<div class="sujeira" style="left: 130px"></div>
+		</div>
+	</template>
+
+	<script src="anime.min.js"></script>
+	<script src="app.js?v=1"></script>
+</body>
+</html>

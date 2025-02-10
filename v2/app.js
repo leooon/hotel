@@ -2,7 +2,7 @@ const config = {
 	dayMsConversion: 1000 * 60 * 60,
 }
 const godConfig = {
-	dayMsConversion: 24000,
+	dayMsConversion: 48000,
 }
 
 const textos = {
@@ -58,6 +58,16 @@ let hotel = {
 			'preco': 6000,
 			'comprado': false,
 		},
+		4: {
+			'texto': '4.º andar',
+			'preco': 10000,
+			'comprado': false,
+		},
+		5: {
+			'texto': '5.º andar',
+			'preco': 15000,
+			'comprado': false,
+		},
 	},
 	streetChars: [],
 }
@@ -70,7 +80,9 @@ const dex = {
 			hotel: 1,
 		},
 		visit: {
-			floors: 1,
+			floors: {
+				any: 1,
+			},
 		},
 	},
 	dinosaur: {
@@ -96,7 +108,9 @@ const dex = {
 			},
 		},
 		visit: {
-			floors: 2,
+			floors: {
+				any: 2,
+			},
 		},
 	},
 	lord: {
@@ -108,13 +122,69 @@ const dex = {
 			},
 		},
 		visit: {
-			floors: 3,
+			floors: {
+				any: 3,
+			},
 		},
 	},
-	werewolf: {},
-	skeleton: {},
-	vampire: {},
-	witch: {},
+	ballet: {
+		name: 'Ballet Dancer',
+		stay: 2,
+		show: {
+			floors: {
+				magenta: 1,
+			},
+		},
+		visit: {
+			guests: {
+				ghost: 2,
+			},
+		},
+	},
+	executive: {
+		name: 'Executive',
+		stay: 1,
+		show: {
+			guests: {
+				clown: 6,
+			},
+		},
+		visit: {
+			floors: {
+				any: 5,
+			},
+		},
+	},
+	sleepwalker: {
+		name: 'Sleepwalker',
+		stay: 3,
+		show: {
+			guests: {
+				lord: 2,
+			},
+			period: 'night',
+		},
+		visit: {
+			period: 'night',
+		},
+	},
+	fish: {
+		name: 'Sleepwalker',
+		stay: 3,
+		show: {
+			guests: {
+				executive: 1,
+			},
+		},
+		visit: {
+			guests: {
+				ballet: 2,
+			},
+			floors: {
+				cyan: 2,
+			},
+		},
+	},
 	witcher: {},
 	goblin: {},
 	giant: {},
@@ -131,6 +201,105 @@ const dex = {
 	alien5: {},
 	alien6: {},
 	alien7: {},
+}
+const solve = {
+	hotel: (rules) => {
+		return true;
+	},
+	guests: (rules) => {
+		const ok = [];
+		for (const [type, min] of Object.entries(rules)) {
+			ok.push(howMany({type: type, location: 'hotel'}) >= min);
+		}
+	
+		return ok.every(value => value);
+	},
+	floors: (rules) => {
+		const ok = [];
+		for (const [type, min] of Object.entries(rules)) {
+			if (type == 'any') {
+				const floorCount = Object.entries(file.building).length;
+				ok.push(floorCount >= min);
+				continue;
+			};
+
+			const floorCount = Object.entries(file.building).filter(([floor, info]) => info.decor === type).length;
+			ok.push(floorCount >= min);
+		}
+		
+		return ok.every(value => value);
+	},
+	period: (rules) => {
+		return file.live.period === rules;
+	},
+	texts: (rules) => {
+		let text = '';
+
+		Object.entries(rules).forEach(([ruleType, requirement]) => {
+			if (ruleType === 'hotel') {
+				text += `Esses desesperados aparecem por qualquer motivo.<br><br>`;
+			} else if (ruleType === 'guests') {
+				text += `Pelo menos ${Object.entries(requirement).map(([guestType, min]) => `${min} ${dex[guestType].name}`).join(', ')} devem estar hospedados.<br>`;
+			} else if (ruleType === 'floors') {
+				Object.entries(requirement).forEach(([floorType, min]) => {
+					if (floorType === 'any') {
+						text += `Pelo menos ${min} andar(es) construído(s).<br>`;
+					} else {
+						text += `Pelo menos ${min} andar(es) decorado(s) como ${decor[floorType].name}.<br>`;
+					}
+				});
+			} else if (ruleType === 'period') {
+				const period = requirement === 'night' ? 'noturno' : 'diurno';
+				text += `Aparecem apenas durante o período ${period}.<br>`;
+			}
+		});
+
+		return text;
+	}
+}
+const checkers = {
+	canShow: (type) => {
+		if (dex[type].show === undefined) return false;
+
+		const ok = [];
+		for (const [condition, rule] of Object.entries(dex[type].show)) {
+			ok.push(solve[condition](rule));
+		};
+
+		if (ok.every(value => value)) {
+			if (!file.progress[type]?.show) {
+				file.progress[type] = {show: true};
+				controller.save();
+			}
+			
+			return true;
+		}
+
+		return false;
+	},
+	canVisit: (type) => {
+		if (dex[type].visit === undefined) return false;
+
+		const ok = [];
+		for (const [condition, rule] of Object.entries(dex[type].visit)) ok.push(solve[condition](rule));
+
+		if (ok.every(value => value)) {
+			if (!file.progress[type].visit) {
+				file.progress[type].visit = true;
+				controller.save();
+
+				Object.values(file.chars).filter(char => char.type === type).forEach(char => {
+					const sprite = char.el.querySelector('div');
+					sprite.classList.add(type);
+					sprite.innerHTML = '';
+				});
+			}
+			
+			return true;
+		}
+
+		return false;
+	}
 }
 
 const decor = {
@@ -208,6 +377,131 @@ const file = {
 
 const rawFile = deepCopy(file);
 
+class CheckIn {
+	bindings() {
+		document.querySelector('#checkin_bt').addEventListener('click', this.openForm.bind(this));
+
+		document.querySelector('#checkin_form .close').addEventListener('click', this.closeForm.bind(this));
+		document.querySelector('#checkin_form .deny').addEventListener('click', this.deny.bind(this));
+		document.querySelector('#checkin_form .accept').addEventListener('click', this.checkIn.bind(this));
+	}
+	active() {
+		if (!file.stage.includes('firstReceptionEnd')) return;
+		document.getElementById('checkin').classList.add('active');
+	}
+	inactive() {
+		document.getElementById('checkin').classList.remove('active');
+	}
+	openForm() {
+		const form = document.querySelector('#checkin_form');
+
+		if (form.style.display == 'flex') {
+			form.style.display = 'none';
+			return false;
+		}
+		form.style.display = 'flex';
+
+		this.loadForm();
+	}
+	closeForm() {
+		document.querySelector('#checkin_form').style.display = 'none';
+	}
+	loadForm() {
+		const char = this.firstInLine();
+
+		const form = document.querySelector('#checkin_form');
+		
+		form.querySelector('.name').innerHTML = dex[char.type].name;
+		form.querySelector('.days').innerHTML = dex[char.type].stay +' Day(s)';
+		form.querySelector('.rate').innerHTML = '600 Coins';
+		form.querySelector('.buttons').style.display = 'block';
+	}
+	clearForm() {
+		const form = document.querySelector('#checkin_form');
+
+		form.querySelector('.name').innerHTML = '';
+		form.querySelector('.days').innerHTML = '';
+		form.querySelector('.rate').innerHTML = '';
+		form.querySelector('.buttons').style.display = 'none';
+	}
+	checkIn() {
+		const char = this.firstInLine();
+
+		const floor = this.nextOpenFloor();
+		if (!floor) {
+			actions.ux.mensagem('noFloorAvailable');
+			return false;
+		};
+
+		if (pushOnce(file.stage, 'lastChar') && char.type == 'lord') {
+			controller.save();
+
+			actions.ux.mensagem('lastChar', () => {
+				document.querySelector('#foto').style.display = 'flex';
+			});
+		}
+
+		file.chars[char.id].checkingIn(floor);
+		
+		this.inactive();
+		this.advanceLine();
+		if (howMany({activity: 'waitingForCheckin'}) + howMany({activity: 'adjustingReceptionQueue'}) == 0) {
+			this.closeForm();
+		} else {
+			this.clearForm();
+		}
+	}
+	deny() {
+		const char = this.firstInLine();
+		file.chars[char.id].denyCheckin();
+
+		this.inactive();
+		this.advanceLine();
+		if (howMany({activity: 'waitingForCheckin'}) + howMany({activity: 'adjustingReceptionQueue'}) == 0) {
+			this.closeForm();
+		} else {
+			this.clearForm();
+		}
+	}
+	firstInLine() {
+		const first = Object.values(file.chars)
+			.filter(char => char.activity === 'waitingForCheckin')
+			.reduce((highest, char) => {
+				return !highest || char.receptionOrder < highest.receptionOrder ? char : highest;
+			});
+
+		return first;
+	}
+	advanceLine() {
+		Object.values(file.chars)
+			.filter(char => char.location === 'reception')
+			.forEach(char => {
+				char.receptionOrder = char.receptionOrder - 1;
+				char.el.style.zIndex = 100 - (char.receptionOrder * 2);
+
+				if (char.activity === 'waitingForCheckin')
+					char.adjustingLine();
+		});
+	}
+	nextOpenFloor() {
+		const floors = Object.values(file.building).filter(floor => floor.guests < 4);
+
+		if (!floors.length) return false;
+
+		const floor = floors.reduce((lowest, floor) => {
+			return !lowest || floor.id < lowest.id ? floor : lowest;
+		});
+
+		return floor;
+	}
+}
+
+class Game {
+	constructor() {
+		this.checkIn = new CheckIn();
+	}
+}
+
 const actions = {
 	events: {
 		showChar: () => {
@@ -243,34 +537,6 @@ const actions = {
 		}
 	},
 	reception: {
-		checkIn: () => {
-			const char = helper.firstInLine();
-
-			const floor = helper.nextOpenFloor();
-			if (!floor) {
-				actions.ux.mensagem('noFloorAvailable');
-				return false;
-			};
-
-			if (pushOnce(file.stage, 'lastChar') && char.type == 'lord') {
-				controller.save();
-
-				actions.ux.mensagem('lastChar', () => {
-					document.querySelector('#foto').style.display = 'flex';
-				});
-			}
-
-			file.chars[char.id].checkingIn(floor);
-			actions.reception.closeCheckin();
-			actions.reception.advanceLine();
-		},
-		deny: () => {
-			const char = helper.firstInLine();
-			file.chars[char.id].denyCheckin();
-
-			actions.reception.closeCheckin();
-			if (Object.values(file.chars).some(char => char.location === 'reception')) actions.reception.advanceLine();
-		},
 		checkout: () => {
 			const char = Object.values(file.chars)
 				.filter(char => char.activity === 'waitingCheckout')
@@ -284,29 +550,11 @@ const actions = {
 			if (!howMany({activity: 'waitingCheckout'}))
 				actions.reception.closeCheckout();
 		},
-		openCheckin: () => {
-			// if (!file.stage.includes('firstReceptionEnd')) return;
-
-			document.getElementById('checkin').classList.add('active');
-		},
-		closeCheckin: () => {
-			document.getElementById('checkin').classList.remove('active');
-		},
 		openCheckout: () => {
 			document.getElementById('checkout_bt').classList.add('active');
 		},
 		closeCheckout: () => {
 			document.getElementById('checkout_bt').classList.remove('active');
-		},
-		advanceLine: () => {
-			Object.values(file.chars)
-				.filter(char => char.location === 'reception')
-				.forEach(char => {
-					char.receptionOrder = char.receptionOrder - 1;
-
-					if (char.activity === 'waitingForCheckin')
-						char.adjustingLine();
-			});
 		},
 		checkOutZIndex: () => {
 			Object.entries(file.chars)
@@ -316,7 +564,7 @@ const actions = {
 					file.chars[id].checkoutOrder = index;
 					file.chars[id].zIndex(index);
 				});
-		}
+		},
 	},
 	ux: {
 		mensagem: (fluxo, callback) => {
@@ -510,6 +758,8 @@ const controller = {
 		}
 
 		if (file.mode == 'god') Object.assign(config, godConfig);
+
+		window.game = new Game();
 		
 		if (!file.stage?.includes('intro')) {
 			controller.init.intro();
@@ -529,9 +779,11 @@ const controller = {
 		location.reload();
 		throw new Error('Reset');
 	},
-	godMode: async () => {
+	godMode: () => {
 		Object.assign(file, rawFile);
 		file.mode = 'god';
+		file.stage.push('intro', 'dex', 'dex2', 'firstReception', 'firstReceptionEnd', 'secondChar', 'secondCharEnd', 'lastChar');
+		file.coins = 10000;
 		file.start = Date.now(),
 		controller.save();
 		location.reload();
@@ -586,7 +838,7 @@ const controller = {
 			actions.events.showChar();
 			actions.events.showChar();
 
-			if (howMany({activity: 'waitingForCheckin'})) actions.reception.openCheckin();
+			if (howMany({activity: 'waitingForCheckin'})) game.checkIn.active();
 
 			if (howMany({activity: 'waitingCheckout'})) {
 				actions.reception.checkOutZIndex();
@@ -607,14 +859,15 @@ const controller = {
 					file.stage.push('firstReceptionEnd');
 					controller.save();
 	
-					actions.reception.openCheckin()
+					actions.checkIn.active()
 				});
 			};
 	
 			document.querySelector('#reset').addEventListener('click', controller.reset);
 			document.querySelector('#godmode').addEventListener('click', controller.godMode);
-			document.querySelector('#checkin_bt').addEventListener('click', actions.reception.checkIn);
-			document.querySelector('#denied_bt').addEventListener('click', actions.reception.deny);
+
+			game.checkIn.bindings();
+
 			document.querySelector('#checkout_bt').addEventListener('click', actions.reception.checkout);
 			document.querySelector('#dex #close_dex').addEventListener('click', actions.dex.closeDex);
 			document.querySelector('#dex #back_dex').addEventListener('click', actions.dex.backDex);
@@ -642,9 +895,11 @@ const controller = {
 			document.getElementById('clock').innerHTML = hours.toString().padStart(2, '0') +':'+ minutes.toString().padStart(2, '0');
 	
 			if (hours >= 6 && hours < 18) {
+				file.live.period = 'day';
 				document.querySelector('#sky #day').style.opacity = 1;
 				document.querySelector('#sky #night').style.opacity = 0;
 			} else {
+				file.live.period = 'night';
 				document.querySelector('#sky #day').style.opacity = 0;
 				document.querySelector('#sky #night').style.opacity = 1;
 			}
@@ -664,109 +919,9 @@ const helper = {
 	rand: (min, max) => {
 		return Math.floor(Math.random() * (max - min + 1)) + min
 	},
-	firstInLine: () => {
-		const first = Object.values(file.chars)
-			.filter(char => char.activity === 'waitingForCheckin')
-			.reduce((highest, char) => {
-				return !highest || char.receptionOrder < highest.receptionOrder ? char : highest;
-			});
-
-		return first;
-	},
-	nextOpenFloor: () => {
-		const floors = Object.values(file.building).filter(floor => floor.guests < 4);
-
-		if (!floors.length) return false;
-
-		const floor = floors.reduce((lowest, floor) => {
-			return !lowest || floor.id < lowest.id ? floor : lowest;
-		});
-
-		return floor;
-	},
 }
 
 let sideToggle = false;
-
-const solve = {
-	hotel: (rules) => {
-		return true;
-	},
-	guests: (rules) => {
-		const ok = [];
-		for (const [type, min] of Object.entries(rules)) {
-			ok.push(howMany({type: type, location: 'hotel'}) >= min);
-		}
-	
-		return ok.every(value => value);
-	},
-	floors: (min) => {
-		const floorCount = Object.entries(file.building).length;
-		return floorCount >= min;
-	},
-	texts: (rules) => {
-		let text = '';
-
-		Object.entries(rules).forEach(([ruleType, requirement]) => {
-			if (ruleType === 'hotel') {
-				text += `Esses desesperados aparecem por qualquer motivo.<br><br>`;
-			} else if (ruleType === 'guests') {
-				text += `Pelo menos ${Object.entries(requirement).map(([guestType, min]) => `${min} ${dex[guestType].name}`).join(', ')} devem estar hospedados.<br>`;
-			} else if (ruleType === 'floors') {
-				text += `Pelo menos ${requirement} andar(es) construído.<br>`;
-			}
-		});
-
-		return text;
-	}
-}
-
-const checkers = {
-	canShow: (type) => {
-		if (dex[type].show === undefined) return false;
-
-		const ok = [];
-		for (const [condition, rule] of Object.entries(dex[type].show)) {
-			ok.push(solve[condition](rule));
-		};
-
-		if (ok.every(value => value)) {
-			if (!file.progress[type]?.show) {
-				file.progress[type] = {show: true};
-				controller.save();
-			}
-			
-			return true;
-		}
-
-		return false;
-	},
-	canVisit: (type) => {
-		if (dex[type].visit === undefined) return false;
-
-		if (Object.values(file.chars).filter(char => char.location === 'reception').length >= 4) return false;
-
-		const ok = [];
-		for (const [condition, rule] of Object.entries(dex[type].visit)) ok.push(solve[condition](rule));
-
-		if (ok.every(value => value)) {
-			if (!file.progress[type].visit) {
-				file.progress[type].visit = true;
-				controller.save();
-
-				Object.values(file.chars).filter(char => char.type === type).forEach(char => {
-					const sprite = char.el.querySelector('div');
-					sprite.classList.add(type);
-					sprite.innerHTML = '';
-				});
-			}
-			
-			return true;
-		}
-
-		return false;
-	}
-}
 
 function getPosition(selector) {
 	const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
@@ -906,10 +1061,12 @@ class Floor {
 	}
 
 	toJSON() {
-		const dontSave = [];
+		const dontSave = ['el'];
 	
 		const obj = {};
 		Object.keys(this).forEach(prop => {
+			if (this[prop] instanceof Date) obj[prop] = this[prop].getTime();
+
 			if (!dontSave.includes(prop))
 				obj[prop] = this[prop];
 		});
@@ -1103,8 +1260,9 @@ class Char {
 			this.activity = 'waitingForCheckin';
 
 			const yPos = getPosition('.gerente').bottom;
-			const xPos = getPosition('.gerente').left + (this.receptionOrder * 35);
+			const xPos = getPosition('.gerente').left + (this.receptionOrder * 15);
 			this.el.style.transform = `translateY(${yPos}px) translateX(${xPos}px)`;
+			this.el.style.zIndex = 100 - (this.receptionOrder * 2);
 		}
 
 		if (['goingToRoomAfterCheckin', 'roomWandering'].includes(this.activity)) {
@@ -1180,7 +1338,12 @@ class Char {
 					});
 				}
 				
-				if (progress >= 45 && setOnce(anim, 'checkVisit') && checkers.canVisit(this.type)) {
+				if (
+					progress >= 45
+					&& setOnce(anim, 'checkVisit')
+					&& howMany({location: 'reception'}) < 8
+					&& checkers.canVisit(this.type)
+				) {
 					anim.pause();
 					this.visiting();
 				}
@@ -1203,15 +1366,21 @@ class Char {
 				controller.save();
 
 				if (Object.values(file.chars).some(char => char.activity == 'waitingForCheckin'))
-					actions.reception.openCheckin();
+					game.checkIn.active();
 			});
 		};
 
 		this.receptionOrder = howMany({location: 'reception'}) + 1,
+		this.el.style.zIndex = 100 - (this.receptionOrder * 2);
 		this.location = 'reception';
 		this.activity = 'goingToReception';
 
-		const originalReceptinOrder = this.receptionOrder;
+		const animParam = {
+			escada: getPosition('#escada').left,
+			finalPos: getPosition('.gerente').left + (this.receptionOrder * 15),
+			originalReceptinOrder: this.receptionOrder,
+		}
+		animParam.finalTime = Math.abs(animParam.finalPos - animParam.escada) * 10;
 
 		anime({
 			targets: this.el,
@@ -1220,15 +1389,15 @@ class Char {
 				{
 					duration: 1000,
 					translateY: getPosition('#escada').bottom + 10,
-					translateX: getPosition('#escada').left
+					translateX: animParam.escada
 				},
 				{
 					duration: 500,
 					translateY: getPosition('.gerente').bottom
 				},
 				{
-					duration: 500 * (5 - this.receptionOrder),
-					translateX: getPosition('.gerente').left + (this.receptionOrder * 35),
+					duration: animParam.finalTime,
+					translateX: animParam.finalPos,
 				},
 			],
 			update: (anim) => {
@@ -1238,8 +1407,8 @@ class Char {
 			complete: () => {
 				this.activity = 'waitingForCheckin';
 
-				if (originalReceptinOrder === 1 && file.stage.includes('firstReceptionEnd')) actions.reception.openCheckin();
-				if (this.receptionOrder < originalReceptinOrder) this.adjustingLine();
+				if (animParam.originalReceptinOrder === 1 && file.stage.includes('firstReceptionEnd')) game.checkIn.active();
+				if (this.receptionOrder < animParam.originalReceptinOrder) this.adjustingLine();
 			},
 		});
 	}
@@ -1251,13 +1420,16 @@ class Char {
 		
 		anime({
 			targets: this.el,
-			duration: 1000,
+			duration: 150,
 			easing: 'linear',
-			translateX: getPosition('.gerente').left + (this.receptionOrder * 35),
+			translateX: getPosition('.gerente').left + (this.receptionOrder * 15),
 			complete: () => {
 				this.activity = 'waitingForCheckin';
 
-				if (originalReceptinOrder === 1 && file.stage.includes('firstReceptionEnd')) actions.reception.openCheckin();
+				if (originalReceptinOrder === 1 && file.stage.includes('firstReceptionEnd')) {
+					game.checkIn.active();
+					game.checkIn.loadForm();
+				}
 				if (this.receptionOrder < originalReceptinOrder) this.adjustingLine();
 			}
 		})
@@ -1295,7 +1467,9 @@ class Char {
 		this.roomFloor = floor.id,
 		this.checkinTime = Date.now(),
 		this.activity = 'goingToRoomAfterCheckin',
+		
 		delete this.receptionOrder;
+		this.el.style.zIndex = 97;
 
 		file.building[floor.id].guests++;
 
