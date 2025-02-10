@@ -2,7 +2,7 @@ const config = {
 	dayMsConversion: 1000 * 60 * 60,
 }
 const godConfig = {
-	dayMsConversion: 48000,
+	dayMsConversion: 60000,
 }
 
 const textos = {
