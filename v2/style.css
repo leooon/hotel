@@ -90,20 +90,25 @@ div {
 #quadro {
 	position: fixed;
 	width: calc(100vw - 60px);
-	margin: calc(90px + env(safe-area-inset-top)) 30px 0;
+	margin: calc(70px + env(safe-area-inset-top)) 30px 0;
 	border: 2px solid black;
 	padding: 20px;
 	background-color: white;
 	color: black;
 	z-index: 5;
+	font: 14px/18px Arial;
 	display: none;
+
+	p {
+		margin: 0 0 20px;
+	}
 }
 
 #checkin_form {
 	position: fixed;
 	bottom: 195px;
 	width: calc(100vw - 60px);
-	margin: calc(90px + env(safe-area-inset-top)) 30px 0;
+	margin: calc(70px + env(safe-area-inset-top)) 30px 0;
 	border: 2px solid black;
 	padding: 20px;
 	background-color: white;
@@ -124,7 +129,7 @@ div {
 #dex {
 	position: fixed;
 	width: calc(100vw - 60px);
-	margin: calc(90px + env(safe-area-inset-top)) 30px 0;
+	margin: calc(70px + env(safe-area-inset-top)) 30px 0;
 	border: 2px solid black;
 	padding: 20px;
 	background-color: white;
@@ -188,7 +193,7 @@ div {
 #room_info {
 	position: fixed;
 	width: calc(100vw - 60px);
-	margin: calc(90px + env(safe-area-inset-top)) 30px 0;
+	margin: calc(70px + env(safe-area-inset-top)) 30px 0;
 	border: 2px solid black;
 	padding: 20px;
 	background-color: white;
@@ -222,7 +227,7 @@ div {
 #catalog {
 	position: fixed;
 	width: calc(100vw - 60px);
-	margin: calc(90px + env(safe-area-inset-top)) 30px 0;
+	margin: calc(70px + env(safe-area-inset-top)) 30px 0;
 	border: 2px solid black;
 	padding: 20px;
 	background-color: white;
@@ -361,6 +366,7 @@ div {
 	}
 	#city_bt {
 		left: 10px;
+		display: none;
 	}
 	#hotel_bt {
 		right: 10px;

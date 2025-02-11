@@ -7,18 +7,18 @@ const godConfig = {
 
 const textos = {
 	'intro': [
-		'Oi amigue, obrigado por testar o protótipo do meu joguinho!<br><br>Você é um amigue.',
-		'Me chame a qualquer momento para tirar dúvidas e reclamar.<br><br> O próximo texto já faz parte do jogo.',
+		'Oi amigue, obrigado por testar o protótipo 2 do meu joguinho!<br><br>Você é um amigue.',
+		'Me chame a qualquer momento para tirar dúvidas, reclamar e dar sugestões!<br><br> O próximo texto já faz parte do jogo:',
 		'Olá. Aparentemente, você herdou essa poçilga caindo aos pedaços.<br><br>Benção ou maldição? Vamos descobrir.',
-		'Algumas pessoas ("pessoas" são essas bolas horríveis na parte de baixo, use a imaginação) estão visitando a rua do hotel.<br><br>Clique na Dex para saber mais sobre elas.',
+		'Algumas pessoas ("pessoas" são essas bolas horríveis na parte de baixo) estão visitando a rua do hotel.<br><br>Clique na Dex para saber mais sobre elas.',
 	],
 	'dexVisit': [
 		'Na Dex, você pode consultar todos os tipos de criaturas que visitam a rua do hotel. Cada grupo está atrás de coisas diferentes, no hotel e na vida!',
 		'Parece que já há um grupo misterioso rondando o hotel! Clique no seu ícone na Dex, vamos ver do que estão atrás!',
-		'Nota do Leon: no protótipo são apenas 4 classes para desbloquear, ok? Sem desespero.',
+		'Nota do Leon: nessa versão são 8 classes para desbloquear, ok?',
 	],
 	'dexVisit2': [
-		'Então esse ser reservadíssimo precisa de pelo menos 1 quarto disponível para se hospedar. A ousadia!',
+		'Então esse ser reservadíssimo precisa de pelo menos 1 quarto disponível para se hospedar.<br><br> A ousadia!',
 		'Aqui estão 1000... dinheiros? Moedas? Seu tio te deixou de herança? Seu vô? Cria aí o lore na sua cabeça.<br><br>Use para construir um andar com quartos, vamos ver a magia acontecer!',
 	],
 	'firstReception': [
@@ -27,8 +27,10 @@ const textos = {
 	],
 	'secondChar': [
 		'Alguém de um novo grupo parece ter se interessado pelo hotel!<br><br>Visite a Dex para entender o que ele procura para se hospedar. A partir daqui é com você.',
+		'Visite também a cidade e compre belíssimas e realistas decorações para seus quartos!<br><br>Alguns hóspedes podem gostar de cores diferentes, tente todas!',
 		'Deus no comando ☝️',
-		'Nota: Um dia completo no hotel leva 1 hora da vida real. Então encha seu hotel e vá ler um livro, te vejo daqui a pouco.',
+		'Leon aqui: No God Mode, cada dia dura 1 minuto, e é uma desgraça desbloquear alguns personagens.<br><br> No reset normal, o dia leva 1 hora e essa deve ser a versão final do jogo.',
+		'Ainda Leon: Não tem como adivinhar, mas dá pra clicar nos andares pra trocar a cor da parede (depois que você comprar na lojinha).',
 	],
 	'lastChar': [
 		'Leon de novo aqui. É isso!',
@@ -433,12 +435,16 @@ class CheckIn {
 			return false;
 		};
 
-		if (pushOnce(file.stage, 'lastChar') && char.type == 'lord') {
+		const unlocked = Object.values(file.progress).filter(char => char.visit).length;
+		if (unlocked == 8 && pushOnce(file.stage, 'lastChar')) {
 			controller.save();
 
 			actions.ux.mensagem('lastChar', () => {
 				document.querySelector('#foto').style.display = 'flex';
 			});
+
+			this.closeForm();
+			return false;
 		}
 
 		file.chars[char.id].checkingIn(floor);
@@ -725,6 +731,7 @@ const actions = {
 					document.querySelector('.fudido button').style.display = 'block';
 
 					actions.dex.backDex();
+					actions.dex.closeDex();
 				});
 
 				return;
@@ -782,8 +789,8 @@ const controller = {
 	godMode: () => {
 		Object.assign(file, rawFile);
 		file.mode = 'god';
-		file.stage.push('intro', 'dex', 'dex2', 'firstReception', 'firstReceptionEnd', 'secondChar', 'secondCharEnd', 'lastChar');
-		file.coins = 10000;
+		// file.stage.push('intro', 'dex', 'dex2', 'firstReception', 'firstReceptionEnd', 'secondChar', 'secondCharEnd', 'lastChar');
+		// file.coins = 10000;
 		file.start = Date.now(),
 		controller.save();
 		location.reload();
@@ -1335,6 +1342,26 @@ class Char {
 					actions.ux.mensagem('secondChar', () => {
 						file.stage.push('secondCharEnd');
 						controller.save();
+
+						const bt = document.querySelector('#city_bt');
+						bt.style.display = 'flex';
+						bt.style.opacity = 0;
+
+						anime({
+							targets: bt,
+							easing: 'linear',
+							keyframes: [
+								{
+									duration: 200,
+									scale: 1.5,
+									opacity: 1
+								},
+								{
+									duration: 200,
+									scale: 1
+								}
+							],
+						});
 					});
 				}
 				
