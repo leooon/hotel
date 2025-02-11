@@ -348,7 +348,7 @@ function deepCopy(obj) {
 }
 
 const file = {
-	version: 0.2,
+	version: 0.3,
 	mode: 'normal',
 	chars: {},
 	progress: {},
@@ -789,8 +789,8 @@ const controller = {
 	godMode: () => {
 		Object.assign(file, rawFile);
 		file.mode = 'god';
-		// file.stage.push('intro', 'dex', 'dex2', 'firstReception', 'firstReceptionEnd', 'secondChar', 'secondCharEnd', 'lastChar');
-		// file.coins = 10000;
+		file.stage.push('intro', 'dex', 'dex2', 'firstReception', 'firstReceptionEnd', 'secondChar', 'secondCharEnd', 'lastChar');
+		file.coins = 10000;
 		file.start = Date.now(),
 		controller.save();
 		location.reload();
@@ -869,6 +869,10 @@ const controller = {
 					actions.checkIn.active()
 				});
 			};
+
+			if (file.stage.includes('secondChar')) {
+				document.querySelector('#city_bt').style.display = 'flex';
+			}
 	
 			document.querySelector('#reset').addEventListener('click', controller.reset);
 			document.querySelector('#godmode').addEventListener('click', controller.godMode);

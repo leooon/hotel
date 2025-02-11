@@ -869,6 +869,10 @@ const controller = {
 					actions.checkIn.active()
 				});
 			};
+
+			if (file.stage.includes('secondChar')) {
+				document.querySelector('#city_bt').style.display = 'flex';
+			}
 	
 			document.querySelector('#reset').addEventListener('click', controller.reset);
 			document.querySelector('#godmode').addEventListener('click', controller.godMode);

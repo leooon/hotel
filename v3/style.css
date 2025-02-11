@@ -17,12 +17,14 @@ html, body {
 	}
 }
 
-#teste {
-	position: absolute;
-	width: 100px;
-	height: 100px;
+#line {
+	position: fixed;
+	top: 420px;
+	left: 0;
+	width: 100vw;
+	height: 2px;
 	background-color: red;
-	z-index: 9999;
+	z-index: 99999;
 }
 
 div {
